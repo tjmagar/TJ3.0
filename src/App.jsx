@@ -208,11 +208,18 @@ Rules you do not break:
 - You are not his friend and not his fan. You are the part of him that keeps the receipts.`;
 
 async function askModel({ system, messages, maxTokens = 1200 }) {
+  const key = await S.get("tj:apikey");
+  if (!key) throw new Error("No API key set. Add one in Settings → Data.");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: "claude-sonnet-5",
       max_tokens: 1000,
       system: system || VOICE,
       messages,
@@ -1884,7 +1891,42 @@ function Talk({ talk, setTalk, index, ai }) {
 }
 
 /* ══════════ SETTINGS ══════════════════════════════════════ */
-function Settings({ core, setC, onExport, onImport, close }) {
+function ApiKeyField({ apiKey, onChange }) {
+  const [draft, setDraft] = useState("");
+  if (apiKey) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ fontFamily: SANS, fontSize: 15, color: C.ink70, letterSpacing: "0.04em" }}>
+          •••• {apiKey.slice(-4)}
+        </span>
+        <Tap onClick={() => onChange("")} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "6px 0" }}>Remove</Tap>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <input
+        type="password"
+        className="tj-date"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="sk-ant-…"
+        aria-label="Anthropic API key"
+        style={{ flex: 1 }}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+      <Tap onClick={() => { if (draft.trim()) { onChange(draft.trim()); setDraft(""); } }}
+        style={{ fontFamily: SANS, fontSize: 13, color: draft.trim() ? C.accent : C.ink16, padding: "6px 0" }}>
+        Save
+      </Tap>
+    </div>
+  );
+}
+
+function Settings({ core, setC, apiKey, onApiKeyChange, onExport, onImport, close }) {
   const [tab, setTab] = useState("morning");
   const [newPrompt, setNewPrompt] = useState("");
   const [which, setWhich] = useState("morning");
@@ -1993,6 +2035,11 @@ function Settings({ core, setC, onExport, onImport, close }) {
 
         {tab === "data" && (
           <div style={{ paddingTop: 8 }}>
+            <div style={{ padding: "18px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+              <Eyebrow style={{ marginBottom: 12 }}>Anthropic API key</Eyebrow>
+              <ApiKeyField apiKey={apiKey} onChange={onApiKeyChange} />
+              <Note>Stored on this device only, sent to no one but api.anthropic.com. Without it, every counted and hand-written part of the app still works — the AI features just say so.</Note>
+            </div>
             <Tap onClick={onExport} style={{ display: "block", width: "100%", textAlign: "left", padding: "20px 0", fontFamily: SANS, fontSize: 16, color: C.ink, borderBottom: `1px solid ${C.lineSoft}` }}>
               Export everything as JSON
             </Tap>
@@ -2026,6 +2073,7 @@ export default function App() {
   const [index, setIndex] = useState([]);
   const [ink, setInkState] = useState({});
   const [inkDates, setInkDates] = useState([]);
+  const [apiKey, setApiKey] = useState("");
   const [ready, setReady] = useState(false);
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -2045,6 +2093,7 @@ export default function App() {
       setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
       const t = await S.get("tj:talk");
       setTalk(t || { messages: [] });
+      setApiKey((await S.get("tj:apikey")) || "");
       setIndex(await readIndex(4));
       setReady(true);
     })();
@@ -2131,10 +2180,15 @@ export default function App() {
   const setInk = (slot, v) => setInkState((i) => ({ ...i, date, [slot]: v }));
   const themes = useMemo(() => countThemes(index), [index]);
 
+  const changeApiKey = (v) => { setApiKey(v); S.set("tj:apikey", v); };
+
   const exportAll = async () => {
     const keys = await S.list("tj:");
     const bundle = { app: "TJ 3.0", version: 2, exported: new Date().toISOString(), data: {} };
-    for (const k of keys) bundle.data[k] = await S.get(k);
+    for (const k of keys) {
+      if (k === "tj:apikey") continue;
+      bundle.data[k] = await S.get(k);
+    }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2152,7 +2206,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(String(r.result));
         const data = parsed.data || parsed;
-        for (const [k, v] of Object.entries(data)) if (k.startsWith("tj:") && v != null) await S.set(k, v);
+        for (const [k, v] of Object.entries(data)) if (k.startsWith("tj:") && k !== "tj:apikey" && v != null) await S.set(k, v);
         const c = await S.get("tj:core");
         setCore(c ? { ...emptyCore(), ...c } : emptyCore());
         const l = await S.get("tj:lib");
@@ -2186,7 +2240,7 @@ export default function App() {
   }
 
   const nav = core.order.filter((id) => !core.hidden.includes(id) && SECTIONS.some((s) => s.id === id));
-  const aiOn = core.ai !== false && core.adaptive !== "never";
+  const aiOn = core.ai !== false && core.adaptive !== "never" && !!apiKey;
 
   const screens = {
     today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} ink={ink} setInk={setInk} themes={themes} />,
@@ -2240,7 +2294,7 @@ export default function App() {
 
       {settings && (
         <div className="tj-sheet-wrap" onClick={() => setSettings(false)}>
-          <Settings core={core} setC={setC} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} />
+          <Settings core={core} setC={setC} apiKey={apiKey} onApiKeyChange={changeApiKey} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} />
         </div>
       )}
       {toast && <div className="tj-toast">{toast}</div>}
