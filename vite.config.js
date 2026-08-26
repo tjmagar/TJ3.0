@@ -13,8 +13,8 @@ export default defineConfig({
         short_name: "TJ 3.0",
         description: "A personal journal and operating system.",
         display: "standalone",
-        theme_color: "#F5F2EA",
-        background_color: "#F5F2EA",
+        theme_color: "#14181B",
+        background_color: "#14181B",
         start_url: "/",
         scope: "/",
         icons: [

@@ -14,14 +14,20 @@ Origin: `TJ30-adaptive.jsx`, a single React 18 file written for Claude's artifac
 
 ## The design is not up for renegotiation
 
-Editorial and typographic: a serif display face, hairline dividers, uppercase letterspaced eyebrow labels, generous whitespace, one muted green accent, three palettes that swap by context (`.tj-dawn` morning — warm clay on apricot, parchment default, `.tj-dusk` evening and Talk). The morning was muted green on sand and read flat; it is deliberately the warmest of the three now.
+Editorial and typographic, now rendered dark: a serif display face, hairline dividers, uppercase letterspaced eyebrow labels, generous whitespace.
+
+**The palette is dark green, bright orange, black, slate and sand** — TJ's words. Sand is the text, orange is the single accent, green and slate are the ground. Three contexts: `.tj-dawn` (morning, green-black with an orange sunrise), the slate default, `.tj-dusk` (evening and Talk, deepest). Sand on slate reads 14:1 and orange 6.9:1 — computed, not eyeballed.
+
+**Glass is the surface language.** Every raised thing — quote, scripture, cards, prompts, vision tiles, the settings sheet, the toast, the header and nav — is a translucent pane over a blurred ground: `backdrop-filter: blur(~22px) saturate(150%)`, a hairline `--glassLine` border, an inset top highlight, and a soft drop shadow. `.tj-wash` paints large green and orange orbs behind everything; without something to blur, frosted panes look flat, so the orbs are what makes the glass read. Keep green and orange apart in that wash — overlapped they mix to brown.
+
+Blur is expensive on an iPad, so it is used on surfaces, never on rows or list items. `prefers-reduced-transparency` drops every blur to a flat slate.
 
 Do not:
 
 - Widen or remove the 640px `max-width` on `.tj-main`. That is a reading measure, not a bug. It stays narrow on every screen. The canvas is exempt and may use full width.
 - Shrink or remove section headers, eyebrow labels, dividers, or padding on reading screens. That whitespace is the product.
 - Replace the bottom text nav with icons, a sidebar, or a tab bar. It is text, it holds five items, it does not scroll, and every target is at least 44pt. Adding a sixth means taking one away.
-- Change any palette value, type size, or copy string.
+- Change any palette value, type size, or copy string without a reason TJ gave you.
 - Alter the `Mark` component or the labels "Your words," "Counted," "Generated." That provenance distinction is the point of the app.
 - Add Tailwind, a UI library, a router, or a state manager.
 - Split the file into a component tree unless a build error forces it, and then minimally.
@@ -34,7 +40,7 @@ The app's one taxonomy. `ANCHORS`, the Becoming goal buckets, `THEMES`, book `OU
 
 Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest), **Relationships** (Marriage, Fatherhood, Friendship), **Performance** (Work, Mind), **Identity** (Faith, Character).
 
-- **Every area carries its own `hue`**, repainted onto `--accent` for that page's subtree, so a drilled-down area feels like its own place rather than eleven identical forms. All eleven clear 4.5:1 on the parchment ground Areas renders on — checked, not eyeballed.
+- **Every area carries its own `hue`**, repainted onto `--accent` for that page's subtree, so a drilled-down area feels like its own place rather than eleven identical forms. All eleven clear 7:1 on the slate ground Areas renders on — checked, not eyeballed, because a hue has to survive the glass wash too.
 - **Areas are data, not constants.** They can be added, renamed, retired and reordered. The list a man has at 36 is not the one he has at 46.
 - **Seasons.** Every area is *in focus*, *maintaining*, or *dormant*. **Three in focus, maximum.** Dormant is a deliberate, guilt-free choice — an area set down must not sit there accusing him. Eleven simultaneous focus areas is how a person levels up in none of them.
 - **Play & rest is not decoration.** Without it the app measures only striving, and a genuinely restful week reads as a failed one. That is a quiet way for a tool like this to make its owner worse. Do not quietly drop it.
