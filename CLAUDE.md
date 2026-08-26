@@ -43,6 +43,18 @@ Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest),
 
 `day.body`, `day.wife`, `day.daughter` and `day.faith` keep their existing shape and paths. Areas are a view over them, not a migration of them — which is why nothing written before the restructure had to move.
 
+## The daily sheet
+
+Modelled on the paper goal sheet TJ uses. Its mechanic is not "set goals" — it is **rewriting the same goals, in present tense, every single day**. The app already showed him identity statements and affirmations; it never made him re-inscribe them, which is the entire point of the paper version.
+
+- `core.lifeGoals` are written as facts, not targets. "I make $74,000 a month" does different work than "reach $74k". Do not rephrase them into targets.
+- `core.dailyActions` carry a cadence — *every day* or *Monday–Friday*. The distinction is from the sheet and it matters: some things do not happen on a Saturday, and pretending otherwise just manufactures a broken streak.
+- The rewrite happens in the morning (`DailySheet`), typed or by hand. The Pencil is the truer version; the paper sheet is handwritten.
+- What was written files into Character under "Written again today", so the run of consecutive days is counted from the record rather than stored as a score.
+- Editing the sheet lives in Areas → Character, not in the morning. The morning is for doing it.
+
+Not built: the vision-board photo from the sheet. The app stores no images anywhere, and adding blob storage for one decorative panel was not worth it. IndexedDB would handle it if TJ wants it later.
+
 ## Metrics and charts
 
 Areas carry structured data as well as prose. Each area's `metrics` in `AREA_DEFS` define what is tracked: `kind` picks the input and the mark, `goal` says which direction is good so a delta can be coloured honestly rather than "up is green", and the first metric is the area's headline.

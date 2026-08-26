@@ -263,6 +263,43 @@ ok("journal leads with counted stats", /Days written/.test(j) && /Current run/.t
 ok("journal offers write / by hand / history", /Write/.test(j) && /By hand/.test(j) && /History/.test(j));
 ok("journal offers prompt cards", (await page.$$(".tj-prompt")).length >= 6);
 
+// 18. the daily goal sheet: rewrite the goals, mark the actions
+await page.goto(URL, { waitUntil: "networkidle" });
+await page.waitForSelector(".tj-nav", { timeout: 10000 });
+await page.click('.tj-navitem:text-is("Today")');
+await page.waitForTimeout(400);
+// walk the morning open so the sheet step is reachable
+const showRest = page.locator('button:has-text("Show the rest")');
+if (await showRest.count()) { await showRest.click(); await page.waitForTimeout(500); }
+const morning = (await page.textContent(".tj-main")) || "";
+ok("the morning offers the sheet", /The sheet/.test(morning) && /already true/.test(morning));
+ok("the sheet offers type or by hand", /By hand/.test(morning));
+ok("the sheet lists the non-negotiable actions", /What I do regardless/.test(morning));
+
+const goal1 = page.locator('[aria-label="Life goal 1"]');
+if (await goal1.count()) {
+  await goal1.click();
+  await page.keyboard.type("I am the man my daughter describes to her own kids.");
+  await page.waitForTimeout(1800);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".tj-nav", { timeout: 10000 });
+  /* the morning collapses back to the first unfinished step on load, so
+     re-expand before looking for a field further down the flow */
+  const rest2 = page.locator('button:has-text("Show the rest")');
+  if (await rest2.count()) { await rest2.click(); await page.waitForTimeout(500); }
+  const r2 = page.locator('[aria-label="Life goal 1"]');
+  const kept = (await r2.count()) ? await r2.inputValue() : "";
+  ok(`a rewritten goal survives a reload ("${kept.slice(0, 28)}…")`, kept.startsWith("I am the man"));
+} else { ok("a rewritten goal survives a reload", false); }
+
+// the editor lives with Character
+await page.click('.tj-navitem:text-is("Areas")');
+await page.waitForTimeout(400);
+await page.click('.tj-main >> text=Character');
+await page.waitForTimeout(700);
+const character = (await page.textContent(".tj-main")) || "";
+ok("Character holds the sheet editor", /Major life goals/.test(character) && /present tense/.test(character));
+ok("actions carry an everyday / weekday cadence", /Monday–Friday/.test(character));
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();
