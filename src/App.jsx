@@ -115,24 +115,27 @@ const flushAllWrites = () => { for (const f of Array.from(flushers)) f(); };
 
 /* ── themes: a counted layer, no model involved ───────────── */
 const THEMES = [
-  { id: "patience", label: "Patience", words: ["impatient","impatience","short","snapped","sharp","irritat","frustrat","annoyed","temper","reactive","edge","curt","tone"] },
-  { id: "presence", label: "Presence", words: ["present","phone","distracted","half-listening","attention","checked out","rushed","hurried","in the room"] },
-  { id: "avoidance", label: "Avoidance", words: ["avoid","procrastinat","putting off","postpone","dodge","later","haven't started","keep meaning","dragging"] },
-  { id: "decisions", label: "Decisions", words: ["decide","decision","indecis","hesitat","torn","uncertain","not sure","waffl","second-guess","overthink"] },
-  { id: "discipline", label: "Discipline", words: ["discipline","promise","routine","woke","slept in","skipped","consistent","showed up","follow through","non-negotiable"] },
-  { id: "confidence", label: "Confidence", words: ["confiden","doubt","imposter","not good enough","nervous","insecure","out of my depth","earned"] },
-  { id: "stress", label: "Stress", words: ["stress","overwhelm","anxious","anxiety","tense","pressure","spiral","too much","burn"] },
-  { id: "sales", label: "Sales", words: ["deal","prospect","pipeline","call","buyer","demo","outbound","quota","close","discovery","objection","champion"] },
-  { id: "relationships", label: "Marriage", words: ["sara","wife","marriage","we argued","she said","listened","connection","date night"] },
-  { id: "fatherhood", label: "Fatherhood", words: ["margo","daughter","play","bedtime","laugh","daddy","she asked","little"] },
-  { id: "health", label: "Health", words: ["sleep","slept","training","workout","spin","boxing","lift","recovery","whoop","tired","energy","alcohol","drank","ate"] },
-  { id: "faith", label: "Faith", words: ["pray","prayer","scripture","god","lord","grace","church","stillness","psalm","faith"] },
-  { id: "identity", label: "Identity", words: ["kind of man","who i want","becoming","the man i","character","integrity","vote for"] },
-  { id: "ambition", label: "Ambition", words: ["ambition","promotion","president's club","win","prove","bigger","next level","hungry","building"] },
-  { id: "money", label: "Money", words: ["money","debt","loan","budget","commission","spend","paid","afford","savings"] },
-  { id: "gratitude", label: "Gratitude", words: ["grateful","gratitude","thankful","lucky","appreciate","blessed"] },
-  { id: "comparison", label: "Comparison", words: ["compare","comparison","everyone else","behind","should be further","they have","jealous","envy"] },
-  { id: "learning", label: "Learning", words: ["learn","reading","book","framework","studied","podcast","notes","practice"] },
+  { id: "patience", areaId: "character", label: "Patience", words: ["impatient","impatience","short","snapped","sharp","irritat","frustrat","annoyed","temper","reactive","edge","curt","tone"] },
+  { id: "presence", areaId: "character", label: "Presence", words: ["present","phone","distracted","half-listening","attention","checked out","rushed","hurried","in the room"] },
+  { id: "avoidance", areaId: "character", label: "Avoidance", words: ["avoid","procrastinat","putting off","postpone","dodge","later","haven't started","keep meaning","dragging"] },
+  { id: "decisions", areaId: "mind", label: "Decisions", words: ["decide","decision","indecis","hesitat","torn","uncertain","not sure","waffl","second-guess","overthink"] },
+  { id: "discipline", areaId: "character", label: "Discipline", words: ["discipline","promise","routine","woke","slept in","skipped","consistent","showed up","follow through","non-negotiable"] },
+  { id: "confidence", areaId: "character", label: "Confidence", words: ["confiden","doubt","imposter","not good enough","nervous","insecure","out of my depth","earned"] },
+  { id: "stress", areaId: "mind", label: "Stress", words: ["stress","overwhelm","anxious","anxiety","tense","pressure","spiral","too much","burn"] },
+  { id: "sales", areaId: "work", label: "Work", words: ["deal","prospect","pipeline","call","buyer","demo","outbound","quota","close","discovery","objection","champion"] },
+  { id: "relationships", areaId: "marriage", label: "Marriage", words: ["sara","wife","marriage","we argued","she said","listened","connection","date night"] },
+  { id: "fatherhood", areaId: "fatherhood", label: "Fatherhood", words: ["margo","daughter","play","bedtime","laugh","daddy","she asked","little"] },
+  { id: "health", areaId: "body", label: "Health", words: ["sleep","slept","training","workout","spin","boxing","lift","recovery","whoop","tired","energy","alcohol","drank","ate"] },
+  { id: "faith", areaId: "faith", label: "Faith", words: ["pray","prayer","scripture","god","lord","grace","church","stillness","psalm","faith"] },
+  { id: "identity", areaId: "character", label: "Identity", words: ["kind of man","who i want","becoming","the man i","character","integrity","vote for"] },
+  { id: "ambition", areaId: "work", label: "Ambition", words: ["ambition","promotion","president's club","win","prove","bigger","next level","hungry","building"] },
+  { id: "money", areaId: "money", label: "Money", words: ["money","debt","loan","budget","commission","spend","paid","afford","savings","invest","bill","cost","raise","salary"] },
+  { id: "gratitude", areaId: "character", label: "Gratitude", words: ["grateful","gratitude","thankful","lucky","appreciate","blessed"] },
+  { id: "comparison", areaId: "character", label: "Comparison", words: ["compare","comparison","everyone else","behind","should be further","they have","jealous","envy"] },
+  { id: "learning", areaId: "mind", label: "Learning", words: ["learn","reading","book","framework","studied","podcast","notes","practice"] },
+  { id: "home", areaId: "home", label: "Home", words: ["house","home","garage","yard","kitchen","tidy","clean","clutter","fix","repair","organize","move","rent","mortgage"] },
+  { id: "play", areaId: "play", label: "Play and rest", words: ["fun","played","hobby","vacation","golf","game","relax","weekend","nap","rested","day off","break","enjoyed","laughed"] },
+  { id: "friendship", areaId: "friendship", label: "Friendship", words: ["friend","friends","buddy","the guys","catch up","reached out","grabbed a beer","text from","lonely","isolated"] },
 ];
 
 const countThemes = (entries) => {
@@ -152,6 +155,90 @@ const countThemes = (entries) => {
     .map((c) => ({ ...c, days: c.days.size }))
     .filter((c) => c.n > 0)
     .sort((a, b) => b.n - a.n);
+};
+
+/* ── life areas: the one taxonomy everything else references ──
+   ANCHORS, the Becoming goal buckets, THEMES, book OUTCOMES and the retrieval
+   sections used to be five overlapping lists that disagreed with each other.
+   This is the list now; the rest point at it.
+
+   Areas are data, not constants: TJ adds, renames, retires and reorders them.
+   The list a man has at 36 is not the one he has at 46. */
+
+const AREA_GROUPS = ["Foundation", "Relationships", "Performance", "Identity"];
+
+/* `day` names the record field an area writes its daily entries into, where it
+   has one. Those fields already exist and keep their shape, so nothing written
+   before this change has to move. */
+const AREA_DEFS = [
+  { id: "body",       label: "Body",        group: "Foundation",    day: "body",      line: "Do the boring basics well." },
+  { id: "money",      label: "Money",       group: "Foundation",    day: "money",     line: "Spend like the man who earned it." },
+  { id: "home",       label: "Home",        group: "Foundation",    day: "home",      line: "Order where you live." },
+  { id: "play",       label: "Play & rest", group: "Foundation",    day: "play",      line: "Rest is not the reward for finishing." },
+  { id: "marriage",   label: "Marriage",    group: "Relationships", day: "wife",      line: "Listen before solving." },
+  { id: "fatherhood", label: "Fatherhood",  group: "Relationships", day: "daughter",  line: "20 minutes fully present." },
+  { id: "friendship", label: "Friendship",  group: "Relationships", day: "friendship",line: "The friends you keep, you call." },
+  { id: "work",       label: "Work",        group: "Performance",   day: "work",      line: "Improve judgment, not just activity." },
+  { id: "mind",       label: "Mind",        group: "Performance",   day: "mind",      line: "Read something that changes a decision." },
+  { id: "faith",      label: "Faith",       group: "Identity",      day: "faith",     line: "Prayer, scripture, or stillness." },
+  { id: "character",  label: "Character",   group: "Identity",      day: "character", line: "Keep the promises you made this morning." },
+];
+
+/* The prompts an area asks day to day. The four that existed before keep their
+   exact questions, so no entry written against them is orphaned. */
+const AREA_PROMPTS = {
+  body: [["sleep","Sleep"],["training","Training"],["nutrition","Nutrition"],["energy","Energy"],["recovery","Recovery"],["stress","Stress"],["alcohol","Alcohol"]],
+  wife: [["listen","Did I listen before solving?"],["understood","Did I make her feel understood?"],["leak","Where did impatience leak out?"],["appreciate","What did I appreciate about her today?"],["easier","What would make her week easier?"]],
+  daughter: [["present","Was I fully present?"],["laugh","What made her laugh?"],["taught","What did she teach me today?"],["memory","What memory did we make?"],["ritual","What is becoming our thing?"]],
+  faith: [["reading","Scripture or reading"],["stood","What stood out"],["prayer","Prayer"],["gratitude","Gratitude"],["question","A question I'm sitting with"],["action","One thing this should produce today"]],
+  money: [["spent","Where did the money actually go?"],["earned","What did I earn or move forward?"],["avoided","What money thing am I avoiding?"],["worth","Was anything I bought worth it?"]],
+  home: [["state","What state is the house in?"],["fixed","What did I put right?"],["nagging","What has been nagging at me here?"]],
+  play: [["did","What did I do purely because I wanted to?"],["rested","Did I actually rest, or just stop working?"],["want","What would I do with a free afternoon?"]],
+  friendship: [["reached","Who did I reach out to?"],["heard","Who have I not heard from in too long?"],["showed","Where did I show up for someone?"]],
+  work: [["moved","What actually moved?"],["judgment","Where was my judgment tested?"],["avoided","What did I avoid at work?"],["learned","What did I learn about how I work?"]],
+  mind: [["read","What did I read or study?"],["thinking","What am I thinking about that won't leave?"],["clear","Where was my head clear, and where wasn't it?"]],
+  character: [["kept","Which promise did I keep?"],["broke","Which one didn't I?"],["man","Was that the man I want to be?"]],
+};
+
+/* Rows written before this change carry the old section names. An area reads
+   its own id plus whatever it used to be filed under, so nothing already
+   indexed drops out of view. */
+const AREA_SECS = {
+  body: ["body", "health"],
+  character: ["character", "identity", "gratitude", "confidence"],
+  marriage: ["marriage"], fatherhood: ["fatherhood"], faith: ["faith"],
+  work: ["work", "sales", "craft"], mind: ["mind"], money: ["money"],
+  home: ["home"], play: ["play"], friendship: ["friendship"],
+};
+const areaRows = (index, id) => {
+  const secs = AREA_SECS[id] || [id];
+  return index.filter((r) => secs.includes(r.sec));
+};
+
+const emptyArea = (d) => ({
+  id: d.id, label: d.label, group: d.group, day: d.day, line: d.line,
+  state: "maintain",           // focus | maintain | dormant
+  stands: "", better: "", next: "",
+  versions: [], retired: false,
+});
+
+const MAX_FOCUS = 3;
+const focusAreas = (core) => (core.areas || []).filter((a) => a.state === "focus" && !a.retired);
+const liveAreas = (core) => (core.areas || []).filter((a) => !a.retired);
+
+/* Reconcile a saved list against the current definitions: keep everything TJ
+   has written, keep his order and states, append anything new. */
+const mergeAreas = (saved) => {
+  const list = Array.isArray(saved) ? saved : [];
+  const byId = new Map(list.map((a) => [a.id, a]));
+  const out = list
+    .filter((a) => a && a.id)
+    .map((a) => {
+      const def = AREA_DEFS.find((d) => d.id === a.id);
+      return { ...emptyArea(def || a), ...a, day: (def || a).day, group: a.group || (def || {}).group || "Foundation" };
+    });
+  for (const d of AREA_DEFS) if (!byId.has(d.id)) out.push(emptyArea(d));
+  return out;
 };
 
 /* ── the index: compact, month-sharded, built for years ───── */
@@ -175,21 +262,22 @@ function dayToIndexRows(dateKey, day, journal) {
   };
   if (!day && !journal) return rows;
   if (day) {
-    if (day.intention) push("identity", "Who I want to be today", day.intention);
+    if (day.intention) push("character", "Who I want to be today", day.intention);
     const am = day.am || {};
-    (am.gratitude || []).forEach((g) => push("gratitude", "Grateful for", g));
-    push("confidence", "What reminds me I'm capable", am.confidence);
+    (am.gratitude || []).forEach((g) => push("character", "Grateful for", g));
+    push("character", "What reminds me I'm capable", am.confidence);
     push("morning", "Looking forward to", am.excitement);
     push("marriage", "How I show up for my people today", am.relationship);
     push("morning", "The thing I'm tempted to avoid", am.hard);
-    push("identity", "Today's declaration", am.declaration);
+    push("character", "Today's declaration", am.declaration);
     (day.morning || []).forEach((a) => push("morning", a.q, a.a));
     (day.evening || []).forEach((a) => push("evening", a.q, a.a));
     (day.priorities || []).forEach((p) => p.t && push("morning", "What matters today", p.t));
-    const nest = [["wife","marriage"],["daughter","fatherhood"],["faith","faith"],["body","health"]];
-    for (const [k, sec] of nest) {
-      const o = day[k] || {};
-      for (const [q, v] of Object.entries(o)) push(sec, q, v);
+    for (const [aid, v] of Object.entries(day.areaToday || {})) push(aid, "In focus today", v);
+    /* every area files under its own id from here on */
+    for (const d of AREA_DEFS) {
+      const o = day[d.day] || {};
+      for (const [q, v] of Object.entries(o)) push(d.id, q, v);
     }
   }
   if (journal) (journal.entries || []).forEach((e) => push("journal", e.prompt || "Free writing", e.text));
@@ -364,17 +452,17 @@ const DEFAULT_IDENTITY = [
   "I can be wrong without becoming defensive.",
 ];
 
+/* Five, so the bar fits an iPad without scrolling and every target is reachable.
+   Areas holds the life areas; Review holds Patterns, the decision journal and
+   the level check; Library and Becoming moved inside Mind and Character. */
 const SECTIONS = [
   { id: "today", label: "Today", fixed: true },
-  { id: "people", label: "People" },
-  { id: "faith", label: "Faith" },
+  { id: "areas", label: "Areas" },
   { id: "journal", label: "Journal" },
-  { id: "patterns", label: "Patterns" },
-  { id: "judgment", label: "Judgment" },
-  { id: "library", label: "Library" },
-  { id: "becoming", label: "Becoming" },
+  { id: "review", label: "Review" },
   { id: "talk", label: "Talk" },
 ];
+const NAV_VERSION = 2;
 
 const emptyDay = (date) => ({
   date,
@@ -388,6 +476,8 @@ const emptyDay = (date) => ({
   anchors: {},
   disciplineNote: "",
   wife: { listen: "", understood: "", leak: "", appreciate: "", easier: "" },
+  money: {}, home: {}, play: {}, friendship: {}, work: {}, mind: {}, character: {},
+  areaToday: {},
   daughter: { present: "", laugh: "", taught: "", memory: "", ritual: "" },
   faith: { reading: "", stood: "", prayer: "", gratitude: "", question: "", action: "" },
   body: { sleep: "", training: "", nutrition: "", energy: "", recovery: "", alcohol: "", stress: "" },
@@ -451,6 +541,10 @@ const emptyCore = () => ({
   wins: [],
   morningMode: "standard",
   freq: FREQ_KEYS.reduce((a, [k]) => ((a[k] = k === "gratitude" || k === "identity" || k === "affirmation" ? "always" : "often"), a), {}),
+  areas: AREA_DEFS.map(emptyArea),
+  levelCadence: "quarter",   // quarter | month | manual
+  levels: [],                // each revisit, oldest first
+  navVersion: NAV_VERSION,
   order: SECTIONS.map((s) => s.id),
   hidden: [],
   adaptive: "often", // often | sometimes | never
@@ -469,6 +563,15 @@ const mergeCore = (saved) => {
   const base = emptyCore();
   if (!saved) return base;
   const out = { ...base, ...saved, customPrompts: { ...base.customPrompts, ...(saved.customPrompts || {}) } };
+  out.areas = mergeAreas(saved.areas);
+  /* A persisted order from the nine-section nav names sections that no longer
+     exist; filtering it would leave a nonsense order rather than the new one. */
+  if (saved.navVersion !== NAV_VERSION) {
+    out.order = SECTIONS.map((x) => x.id);
+    out.hidden = [];
+    out.navVersion = NAV_VERSION;
+    return out;
+  }
   const known = SECTIONS.map((s) => s.id);
   const kept = (Array.isArray(saved.order) ? saved.order : []).filter((id) => known.includes(id));
   out.order = [...kept, ...known.filter((id) => !kept.includes(id))];
@@ -889,148 +992,6 @@ function Anchors({ day, core, setD, setC, evening }) {
   );
 }
 
-/* ══════════ PEOPLE ════════════════════════════════════════ */
-function People({ day, setD, core, setC, index, lib, setLib, ai }) {
-  const [who, setWho] = useState("wife");
-  const names = core.names || { wife: "Sara", daughter: "Margo" };
-  const [thread, setThread] = useState(null);
-  const [busy, setBusy] = useState(false);
-
-  const wifeQs = [
-    ["listen", "Did I listen before solving?"],
-    ["understood", "Did I make her feel understood?"],
-    ["leak", "Where did impatience leak out?"],
-    ["appreciate", "What did I appreciate about her today?"],
-    ["easier", "What would make her week easier?"],
-  ];
-  const kidQs = [
-    ["present", "Was I fully present?"],
-    ["laugh", "What made her laugh?"],
-    ["taught", "What did she teach me today?"],
-    ["memory", "What memory did we make?"],
-    ["ritual", "What is becoming our thing?"],
-  ];
-  const qs = who === "wife" ? wifeQs : kidQs;
-  const sec = who === "wife" ? "marriage" : "fatherhood";
-
-  const recent = useMemo(() => index.filter((r) => r.sec === sec).slice(-40), [index, sec]);
-
-  const readBack = async () => {
-    setBusy(true);
-    setThread(null);
-    try {
-      const out = await askModel({
-        messages: [{
-          role: "user",
-          content: `These are my journal entries about ${who === "wife" ? `my wife ${names.wife}` : `my daughter ${names.daughter}`}, oldest first.\n\n${digest(recent, 40)}\n\nIn under 120 words, tell me what you notice across these. Not a summary. A pattern I might not see, or a contradiction. If there isn't enough here to say anything honest, say that instead of reaching. No advice unless I'd be worse off without it.`,
-        }],
-        maxTokens: 400,
-      });
-      setThread(out);
-    } catch (e) {
-      setThread("Couldn't reach the model. " + String(e.message || e));
-    }
-    setBusy(false);
-  };
-
-  return (
-    <div>
-      <div style={{ paddingTop: 12, paddingBottom: 20 }}>
-        <Grow serif size={38} minH={46} value={names[who]} ariaLabel="Name"
-          onChange={(v) => setC("names", { ...names, [who]: v })} placeholder="Her name"
-          style={{ lineHeight: 1.06, letterSpacing: "-0.024em" }} />
-        <div style={{ fontFamily: SANS, fontSize: 14.5, color: C.ink45, marginTop: 10, lineHeight: 1.5, maxWidth: 430 }}>
-          {who === "wife" ? "The person who sees the version of you nobody else does." : "She'll remember how it felt, not what you did."}
-        </div>
-      </div>
-
-      <Segment options={[{ id: "wife", label: "Wife" }, { id: "daughter", label: "Daughter" }]} value={who} onChange={(v) => { setWho(v); setThread(null); }} />
-      <Rule style={{ marginTop: 6 }} />
-
-      <div className="tj-reveal" key={who}>
-        <Section label="Today" top={24}>
-          {qs.map(([k, q], i) => (
-            <Prompt key={k} q={q} value={day[who][k]} onChange={(v) => setD([who, k], v)} last={i === qs.length - 1} />
-          ))}
-        </Section>
-
-        <Section label="Over time" note={`${recent.length} ${recent.length === 1 ? "entry" : "entries"}`}>
-          {thread ? (
-            <div className="tj-reveal" style={{ paddingTop: 18 }}>
-              <Mark kind="generated" detail={`from ${recent.length} entries`} />
-              <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{thread}</div>
-              <div style={{ display: "flex", gap: 22, paddingTop: 18 }}>
-                <Tap onClick={() => { setLib("kb", [{ id: uid(), type: "Relationship", text: thread, created: keyOf(new Date()), src: "generated" }, ...lib.kb]); setThread(null); }}
-                  style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "6px 0" }}>Keep this</Tap>
-                <Tap onClick={() => setThread(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "6px 0" }}>Dismiss</Tap>
-              </div>
-            </div>
-          ) : busy ? <Working /> : recent.length < 5 ? (
-            <Empty>Write here for a week or so. Then there'll be something to read back to you.</Empty>
-          ) : (
-            <Ghost onClick={readBack} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>What do you notice?</Ghost>
-          )}
-        </Section>
-      </div>
-    </div>
-  );
-}
-
-/* ══════════ FAITH ═════════════════════════════════════════ */
-function Faith({ day, setD, index, ai, aiWhy, lib, setLib }) {
-  const [thread, setThread] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const rows = useMemo(() => index.filter((r) => r.sec === "faith"), [index]);
-
-  const surface = async () => {
-    setBusy(true);
-    try {
-      const out = await askModel({
-        messages: [{ role: "user", content: `These are my devotion entries, oldest first.\n\n${digest(rows, 50)}\n\nWhat keeps returning? Name it in under 90 words. Quote my own words back where it helps. Do not preach, do not encourage, do not score anything.` }],
-        maxTokens: 350,
-      });
-      setThread(out);
-    } catch (e) {
-      setThread("Couldn't reach the model. " + String(e.message || e));
-    }
-    setBusy(false);
-  };
-
-  return (
-    <div>
-      <div style={{ paddingTop: 28, paddingBottom: 6 }}>
-        <h1 style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 40, letterSpacing: "-0.028em", color: C.ink, margin: 0, fontStyle: "italic" }}>Be still.</h1>
-      </div>
-      <Rule soft style={{ marginBottom: 4 }} />
-      <div style={{ paddingTop: 8 }}>
-        <Prompt q="Scripture or reading" value={day.faith.reading} onChange={(v) => setD(["faith", "reading"], v)} placeholder="Where you were today." />
-        <Prompt q="What stood out" value={day.faith.stood} onChange={(v) => setD(["faith", "stood"], v)} placeholder="Even if you don't know why yet." />
-        <Prompt q="Prayer" value={day.faith.prayer} onChange={(v) => setD(["faith", "prayer"], v)} placeholder="For whom, and for what." />
-        <Prompt q="Gratitude" value={day.faith.gratitude} onChange={(v) => setD(["faith", "gratitude"], v)} />
-        <Prompt q="A question I'm sitting with" value={day.faith.question} onChange={(v) => setD(["faith", "question"], v)} placeholder="Doubt is allowed here." />
-        <Prompt q="One thing this should produce today" value={day.faith.action} onChange={(v) => setD(["faith", "action"], v)} placeholder="Something with hands and feet." last />
-      </div>
-
-      <Section label="Recurring" note={`${rows.length} ${rows.length === 1 ? "entry" : "entries"}`}>
-        {thread ? (
-          <div className="tj-reveal" style={{ paddingTop: 18 }}>
-            <Mark kind="generated" detail={`from ${rows.length} entries`} />
-            <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{thread}</div>
-            <div style={{ display: "flex", gap: 22, paddingTop: 18 }}>
-              <Tap onClick={() => { setLib("kb", [{ id: uid(), type: "Faith", text: thread, created: keyOf(new Date()), src: "generated" }, ...lib.kb]); setThread(null); }} style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "6px 0" }}>Keep this</Tap>
-              <Tap onClick={() => setThread(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "6px 0" }}>Dismiss</Tap>
-            </div>
-          </div>
-        ) : busy ? <Working /> : rows.length < 5 ? (
-          <Empty>Not yet. Come back when there's more here.</Empty>
-        ) : (
-          <Ghost onClick={surface} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>What keeps returning?</Ghost>
-        )}
-      </Section>
-    </div>
-  );
-}
-
 /* ══════════ JOURNAL ═══════════════════════════════════════ */
 const JOURNAL_PROMPTS = [
   "What is actually on my mind?",
@@ -1152,33 +1113,6 @@ function Journal({ journal, setJournal, date, setDate, dates, focus, setFocus, i
           </Section>
         </>
       )}
-    </div>
-  );
-}
-
-/* ══════════ PATTERNS — insights, blind spots, experiments, synthesis ══ */
-function Patterns({ lib, setLib, index, core, date, ai, aiWhy, week, setWeek, month, setMonth }) {
-  const [tab, setTab] = useState("insights");
-  const themes = useMemo(() => countThemes(index), [index]);
-  const opts = [
-    { id: "insights", label: "Insights" },
-    { id: "blind", label: "Blind spots" },
-    { id: "experiments", label: "Experiments" },
-    { id: "week", label: "Week" },
-    { id: "month", label: "Month" },
-  ];
-  return (
-    <div>
-      <Title sub="What the record says, as opposed to what you remember.">Patterns</Title>
-      <Segment options={opts} value={tab} onChange={setTab} />
-      <Rule style={{ marginTop: 6 }} />
-      <div key={tab} className="tj-reveal">
-        {tab === "insights" && <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} aiWhy={aiWhy} />}
-        {tab === "blind" && <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} />}
-        {tab === "experiments" && <Experiments lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} />}
-        {tab === "week" && <Synthesis scope="week" record={week} setRecord={setWeek} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
-        {tab === "month" && <Synthesis scope="month" record={month} setRecord={setMonth} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
-      </div>
     </div>
   );
 }
@@ -1421,7 +1355,7 @@ function Synthesis({ scope, record, setRecord, index, date, ai, lib, setLib }) {
 }
 
 /* ══════════ JUDGMENT ══════════════════════════════════════ */
-function Judgment({ lib, setLib, date }) {
+function Judgment({ lib, setLib, date, embedded }) {
   const decFields = [
     { key: "title", q: "The decision", ph: "Say it in one line." },
     { key: "choice", q: "Current best choice" },
@@ -1452,8 +1386,7 @@ function Judgment({ lib, setLib, date }) {
 
   return (
     <div>
-      <Title sub="Not a CRM. A record of how you think when it counts.">Judgment</Title>
-      <Rule style={{ marginTop: 6 }} />
+      {!embedded && <><Title sub="Not a CRM. A record of how you think when it counts.">Judgment</Title><Rule style={{ marginTop: 6 }} /></>}
 
       <div className="tj-reveal">
         <Section label="Decision journal" note="separate the call from the result" top={24}>
@@ -1491,7 +1424,7 @@ function Judgment({ lib, setLib, date }) {
 const OUTCOMES = ["Decision-making","Relationships","Patience","Discipline","Negotiation","Sales judgment","Psychology","Faith","Health","Leadership","Happiness","Identity"];
 const KB_TYPES = ["Principle","Lesson","Quote","Rule","Sales","Relationship","Faith","Health"];
 
-function Library({ lib, setLib, index, ai, aiWhy, date }) {
+function Library({ lib, setLib, index, ai, aiWhy, date, embedded }) {
   const [tab, setTab] = useState("books");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -1529,7 +1462,7 @@ function Library({ lib, setLib, index, ai, aiWhy, date }) {
 
   return (
     <div>
-      <Title sub="The point isn't to collect books. It's to connect reading to an outcome.">Library</Title>
+      {!embedded && <Title sub="The point isn't to collect books. It's to connect reading to an outcome.">Library</Title>}
       <Segment options={[{ id: "books", label: "Books" }, { id: "kb", label: "Principles" }]} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
 
@@ -1625,7 +1558,7 @@ function Library({ lib, setLib, index, ai, aiWhy, date }) {
 /* ══════════ BECOMING ══════════════════════════════════════ */
 const AREAS = ["Relationships", "Performance", "Foundation", "Identity"];
 
-function Becoming({ core, setC, index, ai, date }) {
+function Becoming({ core, setC, index, ai, aiWhy, date, embedded }) {
   const [tab, setTab] = useState("identity");
   const [checking, setChecking] = useState(null);
   const [moments, setMoments] = useState({});
@@ -1664,9 +1597,11 @@ function Becoming({ core, setC, index, ai, date }) {
 
   return (
     <div>
-      <Title sub={tab === "identity" ? "Not scored. Checked against the record." : tab === "goals" ? "Four areas. No more." : "Three things you don't negotiate."}>
-        {tab === "identity" ? "Who I'm becoming" : tab === "goals" ? "Goals" : "Discipline"}
-      </Title>
+      {!embedded && (
+        <Title sub={tab === "identity" ? "Not scored. Checked against the record." : tab === "goals" ? "Four areas. No more." : "Three things you don't negotiate."}>
+          {tab === "identity" ? "Who I'm becoming" : tab === "goals" ? "Goals" : "Discipline"}
+        </Title>
+      )}
       <Segment options={[{ id: "identity", label: "Identity" }, { id: "goals", label: "Goals" }, { id: "discipline", label: "Discipline" }]} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
 
@@ -1773,6 +1708,301 @@ function Becoming({ core, setC, index, ai, date }) {
           </Section>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ══════════ REVIEW — looking back, in one place ═══════════ */
+function Review({ lib, setLib, index, core, setC, date, ai, aiWhy, week, setWeek, month, setMonth }) {
+  const [tab, setTab] = useState("insights");
+  const themes = useMemo(() => countThemes(index), [index]);
+  const opts = [
+    { id: "insights", label: "Insights" },
+    { id: "blind", label: "Blind spots" },
+    { id: "experiments", label: "Experiments" },
+    { id: "decisions", label: "Decisions" },
+    { id: "week", label: "Week" },
+    { id: "month", label: "Month" },
+    { id: "level", label: "Level check" },
+  ];
+  return (
+    <div>
+      <Title sub="What the record says, as opposed to what you remember.">Review</Title>
+      <Segment options={opts} value={tab} onChange={setTab} />
+      <Rule style={{ marginTop: 6 }} />
+      <div key={tab} className="tj-reveal">
+        {tab === "insights" && <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} aiWhy={aiWhy} />}
+        {tab === "blind" && <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} />}
+        {tab === "experiments" && <Experiments lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} />}
+        {tab === "decisions" && <Judgment lib={lib} setLib={setLib} date={date} embedded />}
+        {tab === "week" && <Synthesis scope="week" record={week} setRecord={setWeek} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
+        {tab === "month" && <Synthesis scope="month" record={month} setRecord={setMonth} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
+        {tab === "level" && <LevelCheck core={core} setC={setC} index={index} date={date} />}
+      </div>
+    </div>
+  );
+}
+
+/* The revisit loop. Not a score going up — your own words from last time, set
+   beside what you would write today, and a forced re-choice of the three. */
+const CADENCE_DAYS = { quarter: 90, month: 30, manual: 0 };
+
+function LevelCheck({ core, setC, index, date }) {
+  const areas = liveAreas(core);
+  const focus = focusAreas(core);
+  const levels = core.levels || [];
+  const last = levels[levels.length - 1];
+  const cadence = core.levelCadence || "quarter";
+  const due = !last || (CADENCE_DAYS[cadence] > 0 && daysBetween(last.at, date) >= CADENCE_DAYS[cadence]);
+
+  const record = () => {
+    setC("areas", core.areas.map((a) => (
+      a.retired ? a : { ...a, versions: [...(a.versions || []), { stands: a.stands, better: a.better, next: a.next, state: a.state, at: date }] }
+    )));
+    setC("levels", [...levels, { id: uid(), at: date, n: index.length, focus: focus.map((a) => a.id) }]);
+  };
+
+  return (
+    <div>
+      <Section label="Level check" note={due ? "due" : `last ${last ? midDate(last.at) : "never"}`} top={24}>
+        <div style={{ paddingTop: 16 }}>
+          <Eyebrow style={{ marginBottom: 10 }}>How often</Eyebrow>
+          <div style={{ display: "flex", gap: 20 }}>
+            {[["quarter", "Quarterly"], ["month", "Monthly"], ["manual", "When I say"]].map(([v, l]) => (
+              <Tap key={v} onClick={() => setC("levelCadence", v)}
+                style={{ fontFamily: SANS, fontSize: 13, padding: "10px 0", color: cadence === v ? C.accent : C.ink28 }}>{l}</Tap>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section label="Then and now" note={`${areas.length} areas`}>
+        {areas.map((a) => {
+          const prior = (a.versions || [])[a.versions.length - 1];
+          return (
+            <div key={a.id} style={{ padding: "20px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                <Eyebrow style={{ color: a.state === "focus" ? C.accent : C.ink28 }}>{a.label}</Eyebrow>
+                <span style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: C.ink16 }}>{STATE_LABEL[a.state]}</span>
+              </div>
+              {prior && (
+                <div style={{ paddingTop: 10 }}>
+                  <Mark kind="you" detail={midDate(prior.at)} />
+                  <div style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 300, fontStyle: "italic", color: C.ink45, lineHeight: 1.55, marginTop: 7 }}>
+                    {prior.stands || "Nothing written then."}
+                  </div>
+                </div>
+              )}
+              <div style={{ paddingTop: prior ? 14 : 8 }}>
+                <Grow serif size={17.5} value={a.stands} ariaLabel={`${a.label} now`}
+                  onChange={(v) => setC("areas", core.areas.map((x) => (x.id === a.id ? { ...x, stands: v } : x)))}
+                  placeholder="Where is it today?" />
+              </div>
+            </div>
+          );
+        })}
+      </Section>
+
+      <Section label="Choose the three" note={`${focus.length} of ${MAX_FOCUS} in focus`}>
+        <Note>Everything not in focus keeps ticking over or stays deliberately set down. Three is the point, not a limitation.</Note>
+        <Ghost onClick={record}>
+          <span style={{ color: C.accent, marginRight: 8 }}>—</span>
+          Record this check
+        </Ghost>
+        {levels.length > 0 && (
+          <div style={{ paddingTop: 10 }}>
+            <Mark kind="counted" detail={`${levels.length} ${levels.length === 1 ? "check" : "checks"} kept`} />
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
+/* ══════════ AREAS ═════════════════════════════════════════ */
+const STATE_LABEL = { focus: "in focus", maintain: "maintaining", dormant: "dormant" };
+
+function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, open, setOpen }) {
+  const areas = liveAreas(core);
+  const focus = focusAreas(core);
+
+  if (open) {
+    const area = areas.find((a) => a.id === open);
+    if (area) return <Area area={area} core={core} setC={setC} day={day} setD={setD} index={index}
+      lib={lib} setLib={setLib} ai={ai} aiWhy={aiWhy} date={date} back={() => setOpen(null)} />;
+  }
+
+  const setState = (id, state) => {
+    if (state === "focus" && focus.length >= MAX_FOCUS && !focus.some((a) => a.id === id)) return;
+    setC("areas", core.areas.map((a) => (a.id === id ? { ...a, state } : a)));
+  };
+
+  return (
+    <div>
+      <Title sub="Where your life actually happens. Three in focus at a time, no more — everything else is either ticking over or deliberately set down.">
+        Areas
+      </Title>
+
+      <Section label="In focus" note={`${focus.length} of ${MAX_FOCUS}`} top={20}>
+        {focus.length === 0 ? (
+          <Empty>Nothing in focus. Pick up to three below — the morning will ask about those and leave the rest alone.</Empty>
+        ) : focus.map((a) => (
+          <div key={a.id} style={{ padding: "18px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+            <Tap onClick={() => setOpen(a.id)} style={{ display: "block", width: "100%", textAlign: "left" }}>
+              <Eyebrow style={{ color: C.accent }}>{a.label}</Eyebrow>
+              <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: a.next ? C.ink : C.ink28, lineHeight: 1.5, marginTop: 9 }}>
+                {a.next || "No next move written yet."}
+              </div>
+            </Tap>
+          </div>
+        ))}
+      </Section>
+
+      {AREA_GROUPS.map((g) => {
+        const list = areas.filter((a) => a.group === g);
+        if (!list.length) return null;
+        return (
+          <Section key={g} label={g} top={30}>
+            {list.map((a, i) => {
+              const n = areaRows(index, a.id).length;
+              return (
+                <div key={a.id} style={{ borderBottom: i < list.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                  <Tap onClick={() => setOpen(a.id)}
+                    style={{ display: "flex", width: "100%", alignItems: "baseline", justifyContent: "space-between", gap: 12, padding: "16px 0 6px", textAlign: "left" }}>
+                    <span style={{ flex: 1, fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: a.state === "dormant" ? C.ink28 : C.ink, letterSpacing: "-0.012em" }}>
+                      {a.label}
+                    </span>
+                    <span style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: a.state === "focus" ? C.accent : C.ink16 }}>
+                      {STATE_LABEL[a.state]}
+                    </span>
+                    <span style={{ fontFamily: SANS, fontSize: 11, color: C.ink16, minWidth: 26, textAlign: "right" }}>{n || ""}</span>
+                  </Tap>
+                  <div style={{ display: "flex", gap: 18, paddingBottom: 12 }}>
+                    {["focus", "maintain", "dormant"].map((v) => {
+                      const blocked = v === "focus" && focus.length >= MAX_FOCUS && a.state !== "focus";
+                      return (
+                        <Tap key={v} onClick={() => setState(a.id, v)} disabled={blocked}
+                          style={{ fontFamily: SANS, fontSize: 12, padding: "8px 0", letterSpacing: "0.02em",
+                            color: a.state === v ? C.accent : blocked ? C.ink16 : C.ink28, transition: "color .3s" }}>
+                          {STATE_LABEL[v]}
+                        </Tap>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </Section>
+        );
+      })}
+
+      <Note>Dormant is a choice, not a failure. An area you have deliberately set down should not sit there accusing you.</Note>
+    </div>
+  );
+}
+
+function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, back }) {
+  const [thread, setThread] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const rows = useMemo(() => areaRows(index, area.id), [index, area.id]);
+  const prompts = AREA_PROMPTS[area.day] || [];
+  const themes = useMemo(() => THEMES.filter((t) => t.areaId === area.id), [area.id]);
+  const counted = useMemo(() => {
+    const words = themes.flatMap((t) => t.words);
+    const days = new Set();
+    for (const r of rows) if (words.some((w) => ((r.q || "") + " " + (r.t || "")).toLowerCase().includes(w))) days.add(r.d);
+    return days.size;
+  }, [rows, themes]);
+
+  const set = (k, v) => setC("areas", core.areas.map((a) => (a.id === area.id ? { ...a, [k]: v } : a)));
+
+  const readBack = async () => {
+    setBusy(true); setThread(null);
+    try {
+      const out = await askModel({
+        messages: [{ role: "user", content: `These are my journal entries about ${area.label.toLowerCase()}, oldest first.\n\n${digest(rows, 50)}\n\nIn under 120 words, tell me what you notice across these. Not a summary. A pattern I might not see, or a contradiction between what I say about this area and what I actually do. If there isn't enough here to say anything honest, say that instead of reaching.` }],
+        maxTokens: 400,
+      });
+      setThread(out);
+    } catch (e) { setThread(String(e.message || e)); }
+    setBusy(false);
+  };
+
+  return (
+    <div>
+      <Tap onClick={back} style={{ fontFamily: SANS, fontSize: 13, color: C.ink45, padding: "14px 0 4px" }}>‹ Areas</Tap>
+      <Title sub={area.line}>{area.label}</Title>
+
+      <Section label="Season" note={STATE_LABEL[area.state]} top={16}>
+        <div style={{ display: "flex", gap: 20, paddingTop: 12 }}>
+          {["focus", "maintain", "dormant"].map((v) => (
+            <Tap key={v} onClick={() => set("state", v)}
+              style={{ fontFamily: SANS, fontSize: 13, padding: "10px 0", color: area.state === v ? C.accent : C.ink28 }}>
+              {STATE_LABEL[v]}
+            </Tap>
+          ))}
+        </div>
+      </Section>
+
+      <Section label="Where it stands">
+        <Prompt q="Honestly, where is this right now?" value={area.stands} onChange={(v) => set("stands", v)} placeholder="Not a score. The truth, in a sentence." />
+        <Prompt q="What does better look like here?" value={area.better} onChange={(v) => set("better", v)} placeholder="In your words, not a target." />
+        <Prompt q="The next actual move" value={area.next} onChange={(v) => set("next", v)} placeholder="Small enough that you can't talk yourself out of it." last />
+      </Section>
+
+      {prompts.length > 0 && day && (
+        <Section label="Today" note={longDate(date)}>
+          {prompts.map(([k, q], i) => (
+            <Prompt key={k} q={q} value={(day[area.day] || {})[k]} onChange={(v) => setD([area.day, k], v)} last={i === prompts.length - 1} />
+          ))}
+        </Section>
+      )}
+
+      {(area.versions || []).length > 0 && (
+        <Section label="Earlier wording" note={`${area.versions.length} kept`}>
+          {area.versions.slice(-3).reverse().map((v, i) => (
+            <div key={i} style={{ padding: "16px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+              <Mark kind="you" detail={midDate(v.at)} />
+              <div style={{ fontFamily: SERIF, fontSize: 17, fontWeight: 300, fontStyle: "italic", color: C.ink70, lineHeight: 1.55, marginTop: 8 }}>{v.stands || "—"}</div>
+            </div>
+          ))}
+        </Section>
+      )}
+
+      <Section label="What the record says" note={`${rows.length} ${rows.length === 1 ? "entry" : "entries"}`}>
+        {rows.length > 0 && (
+          <div style={{ paddingTop: 16 }}>
+            <Mark kind="counted" detail={`${counted} ${counted === 1 ? "day" : "days"} you wrote about this`} />
+          </div>
+        )}
+        {thread ? (
+          <div className="tj-reveal" style={{ paddingTop: 18 }}>
+            <Mark kind="generated" detail={`from ${rows.length} entries`} />
+            <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{thread}</div>
+            <div style={{ display: "flex", gap: 22, paddingTop: 18 }}>
+              <Tap onClick={() => { setLib("kb", [{ id: uid(), type: "Lesson", text: thread, created: keyOf(new Date()), src: "generated" }, ...lib.kb]); setThread(null); }}
+                style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "10px 0" }}>Keep this</Tap>
+              <Tap onClick={() => setThread(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "10px 0" }}>Dismiss</Tap>
+            </div>
+          </div>
+        ) : busy ? <Working /> : rows.length < 5 ? (
+          <Empty>Write here for a week or so. Then there'll be something to read back to you.</Empty>
+        ) : (
+          <Ghost onClick={readBack} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "What do you notice?" : aiWhy}</Ghost>
+        )}
+      </Section>
+
+      {/* the two sections that used to own a nav slot now live where they belong */}
+      {area.id === "mind" && (
+        <Section label="Library" note="reading tied to an outcome" top={34}>
+          <Library lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} embedded />
+        </Section>
+      )}
+      {area.id === "character" && (
+        <Section label="Becoming" note="identity, goals, the non-negotiables" top={34}>
+          <Becoming core={core} setC={setC} index={index} ai={ai} aiWhy={aiWhy} date={date} embedded />
+        </Section>
+      )}
     </div>
   );
 }
@@ -2055,6 +2285,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState("");
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(false);
+  const [areaOpen, setAreaOpen] = useState(null);
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
   const [toast, setToast] = useState("");
@@ -2215,7 +2446,7 @@ export default function App() {
     })();
   }, [view, date, journalCount]);
 
-  useEffect(() => { setFocus(false); window.scrollTo({ top: 0 }); }, [view]);
+  useEffect(() => { setFocus(false); setAreaOpen(null); window.scrollTo({ top: 0 }); }, [view]);
 
   const setD = (path, value) => setDay((d) => {
     if (!d) return d;
@@ -2290,14 +2521,6 @@ export default function App() {
     r.readAsText(file);
   };
 
-  const navRef = useRef(null);
-  useEffect(() => {
-    const el = navRef.current;
-    if (!el) return;
-    const a = el.querySelector('[data-active="1"]');
-    if (a && typeof a.scrollIntoView === "function") a.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-  }, [view]);
-
   /* A storage failure stops here rather than rendering an empty day the
      autosave would then write over a real one. Say so plainly — silence would
      look like a slow load, and the owner might start typing into nothing. */
@@ -2329,15 +2552,12 @@ export default function App() {
 
   const screens = {
     today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />,
-    people: <People day={day} setD={setD} core={core} setC={setC} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} />,
-    faith: <Faith day={day} setD={setD} index={index} ai={aiOn} aiWhy={aiWhy} lib={lib} setLib={setLib} />,
+    areas: <Areas core={core} setC={setC} day={day} setD={setD} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} date={date} open={areaOpen} setOpen={setAreaOpen} />,
     journal: <Journal journal={journal} setJournal={setJournal} date={date} setDate={setDate} dates={journalDates} focus={focus} setFocus={setFocus} ink={ink} setInk={setInk} index={index} inkDates={inkDates} core={core} />,
-    patterns: <Patterns lib={lib} setLib={setLib} index={index} core={core} date={date} ai={aiOn} aiWhy={aiWhy} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
-    judgment: <Judgment lib={lib} setLib={setLib} date={date} />,
-    library: <Library lib={lib} setLib={setLib} index={index} ai={aiOn} aiWhy={aiWhy} date={date} />,
-    becoming: <Becoming core={core} setC={setC} index={index} ai={aiOn} aiWhy={aiWhy} date={date} />,
+    review: <Review lib={lib} setLib={setLib} index={index} core={core} setC={setC} date={date} ai={aiOn} aiWhy={aiWhy} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
     talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} aiWhy={aiWhy} />,
   };
+
 
   return (
     <div className={"tj-root" + (dusk ? " tj-dusk" : "") + (dawn ? " tj-dawn" : "")}>
@@ -2363,7 +2583,7 @@ export default function App() {
         <div style={{ height: 150 }} />
       </main>
 
-      <nav className={"tj-nav" + (focus ? " tj-gone" : "")} ref={navRef}>
+      <nav className={"tj-nav" + (focus ? " tj-gone" : "")}>
         <div className="tj-nav-scroll">
           {nav.map((id) => {
             const s = SECTIONS.find((x) => x.id === id);
@@ -2429,6 +2649,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .tj-head-inner { max-width: 640px; margin: 0 auto; padding: 6px 22px 14px; display: flex; align-items: center; justify-content: space-between; }
 .tj-main { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; padding: 0 22px; }
+/* the 640 reading measure is deliberate and stays on every reading screen */
+.tj-main.tj-wide { max-width: 820px; }
 
 .tj-nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
@@ -2438,19 +2660,18 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   border-top: 1px solid var(--lineSoft);
   transition: opacity .4s ease, background .85s cubic-bezier(.4,0,.2,1);
 }
+/* Five items fit an iPad without scrolling, so the bar spreads them instead of
+   hiding half off-screen. Targets are 44px tall — they were 30. */
 .tj-nav-scroll {
-  display: flex; gap: 24px; overflow-x: auto; scroll-behavior: smooth;
-  padding: 13px 22px 11px; max-width: 640px; margin: 0 auto;
-  scrollbar-width: none; -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  display: flex; justify-content: space-between; gap: 8px;
+  padding: 6px 22px 4px; max-width: 640px; margin: 0 auto;
 }
-.tj-nav-scroll::-webkit-scrollbar { display: none; }
 .tj-navitem {
-  position: relative; flex: 0 0 auto; background: none; border: none; cursor: pointer;
-  font-family: ${SANS}; font-size: 13.5px; letter-spacing: 0.015em; padding: 6px 0 10px; transition: color .35s ease;
+  position: relative; flex: 1 1 0; background: none; border: none; cursor: pointer;
+  font-family: ${SANS}; font-size: 13.5px; letter-spacing: 0.015em;
+  min-height: 44px; padding: 6px 2px 12px; transition: color .35s ease;
 }
-.tj-navdot { position: absolute; left: 50%; bottom: 2px; width: 3px; height: 3px; margin-left: -1.5px; border-radius: 50%; transition: background .35s ease; }
+.tj-navdot { position: absolute; left: 50%; bottom: 6px; width: 3px; height: 3px; margin-left: -1.5px; border-radius: 50%; transition: background .35s ease; }
 .tj-gone { opacity: 0; pointer-events: none; }
 
 .tj-seg { display: flex; gap: 22px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -3006,6 +3227,11 @@ const shows = (freq, dateKey, key) => {
 
 function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai, aiWhy, ink, setInk, themes }) {
   const am = day.am || {};
+  /* The morning was ten fixed steps for everyone, every day, which is why it
+     ran long. With a season chosen it asks about the areas in focus and drops
+     the generic rotation those areas replace. Length becomes something TJ
+     controls by choosing what he is working on. */
+  const focus = focusAreas(core);
   /* Was `setD(["am"], { ...am, [k]: v })`, which spread a stale closure: two
      calls in one handler both built from the same `am`, so the second silently
      discarded the first. That killed "Write it in my voice" and "Another".
@@ -3066,10 +3292,11 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   const steps = [];
   if (shows(freq, date, "gratitude")) steps.push({ id: "gratitude", done: () => grat.some(has) });
   if (shows(freq, date, "affirmation") && todaysAff) steps.push({ id: "affirmation", done: () => am.affAccepted });
-  if (mode !== "quick" && shows(freq, date, "confidence")) steps.push({ id: "confidence", done: () => has(am.confidence) });
-  if (mode !== "quick" && shows(freq, date, "excitement")) steps.push({ id: "excitement", done: () => has(am.excitement) });
+  if (!focus.length && mode !== "quick" && shows(freq, date, "confidence")) steps.push({ id: "confidence", done: () => has(am.confidence) });
+  if (!focus.length && mode !== "quick" && shows(freq, date, "excitement")) steps.push({ id: "excitement", done: () => has(am.excitement) });
   if (shows(freq, date, "identity")) steps.push({ id: "identity", done: () => has(day.intention) });
-  if (mode !== "quick" && shows(freq, date, "relationships")) steps.push({ id: "relationships", done: () => has(am.relationship) });
+  if (focus.length) steps.push({ id: "focus", done: () => focus.every((a) => has((day.areaToday || {})[a.id])) });
+  else if (mode !== "quick" && shows(freq, date, "relationships")) steps.push({ id: "relationships", done: () => has(am.relationship) });
   steps.push({ id: "three", done: () => day.priorities.some((p) => has(p.t)) });
   if (mode !== "quick" && shows(freq, date, "hard")) steps.push({ id: "hard", done: () => has(am.hard) });
   if (mode === "deep") steps.push({ id: "deeper", done: () => (day.morning || []).some((q) => has(q.a)) });
@@ -3297,6 +3524,31 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
         <div className="tj-reveal">
           <Section label="Your people">
             <Prompt q={frames.relationships} value={am.relationship} onChange={(v) => setAm("relationship", v)} placeholder="Something you'll actually do, not a feeling." last />
+          </Section>
+        </div>
+      )}
+
+      {on("focus") && focus.length > 0 && (
+        <div className="tj-reveal">
+          <Section label="In focus" note={focus.length === 1 ? "one area" : `${focus.length} areas`}>
+            <div style={{ fontFamily: SERIF, fontSize: 19.5, fontWeight: 300, color: C.ink, lineHeight: 1.4, letterSpacing: "-0.014em", padding: "20px 0 4px" }}>
+              What does today look like in the areas you're working on?
+            </div>
+            {focus.map((a, i) => (
+              <div key={a.id} style={{ padding: "16px 0", borderBottom: i < focus.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                  <Eyebrow style={{ color: C.accent }}>{a.label}</Eyebrow>
+                </div>
+                {a.next && (
+                  <div style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 300, fontStyle: "italic", color: C.ink45, lineHeight: 1.5, margin: "8px 0 4px" }}>
+                    {a.next}
+                  </div>
+                )}
+                <Grow value={(day.areaToday || {})[a.id]} ariaLabel={a.label}
+                  onChange={(v) => setD(["areaToday", a.id], v)}
+                  placeholder="One line. What happens here today?" />
+              </div>
+            ))}
           </Section>
         </div>
       )}

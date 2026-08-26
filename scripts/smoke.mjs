@@ -39,10 +39,10 @@ const ok = (label, cond) => console.log(`${cond ? "PASS" : "FAIL"}  ${label}`);
 await page.goto(URL, { waitUntil: "networkidle" });
 await page.waitForSelector(".tj-nav", { timeout: 10000 });
 
-// 1. all nine sections present in nav
+// 1. the five sections are all present
 const nav = await page.$$eval(".tj-navitem", (n) => n.map((x) => x.textContent.trim()));
-const want = ["Today", "People", "Faith", "Journal", "Patterns", "Judgment", "Library", "Becoming", "Talk"];
-ok(`nine sections in nav (${nav.join(", ")})`, want.every((w) => nav.includes(w)) && nav.length === 9);
+const want = ["Today", "Areas", "Journal", "Review", "Talk"];
+ok(`five sections in nav (${nav.join(", ")})`, want.every((w) => nav.includes(w)) && nav.length === 5);
 
 // 2. each section renders
 for (const label of want) {
@@ -52,16 +52,50 @@ for (const label of want) {
   ok(`${label} renders`, txt.trim().length > 40);
 }
 
-// 3. Judgment is the decision journal — no sales surfaces left
-await page.click('.tj-navitem:text-is("Judgment")');
-await page.waitForTimeout(320);
-const judgment = (await page.textContent(".tj-main")) || "";
-ok("Judgment offers the decision journal", /Decision journal/.test(judgment) && /Log a decision/.test(judgment));
-const sales = ["Deals", "Deal reflection", "Calls", "Call review", "Language", "Buyer psychology", "Cold email"]
-  .filter((t) => judgment.includes(t));
-ok(`no sales surfaces in Judgment${sales.length ? " — found: " + sales.join(", ") : ""}`, sales.length === 0);
+// 3. the nav fits without scrolling, and every target is reachable
+const navBox = await page.$eval(".tj-nav-scroll", (e) => ({ sw: e.scrollWidth, cw: e.clientWidth }));
+ok(`nav fits without scrolling (${navBox.sw} <= ${navBox.cw})`, navBox.sw <= navBox.cw + 1);
+const small = await page.$$eval(".tj-navitem", (n) => n.filter((x) => x.getBoundingClientRect().height < 44).length);
+ok(`every nav target is at least 44px tall (${small} under)`, small === 0);
 
-// 4. themes: dawn on morning Today, dusk on Talk
+// 4. the eleven areas are there, grouped, with seasons
+await page.click('.tj-navitem:text-is("Areas")');
+await page.waitForTimeout(400);
+const areasText = (await page.textContent(".tj-main")) || "";
+const areas = ["Body", "Money", "Home", "Play & rest", "Marriage", "Fatherhood", "Friendship", "Work", "Mind", "Faith", "Character"];
+const missingAreas = areas.filter((a) => !areasText.includes(a));
+ok(`eleven areas present${missingAreas.length ? " — missing " + missingAreas.join(", ") : ""}`, missingAreas.length === 0);
+ok("grouped under the four Becoming buckets",
+  ["Foundation", "Relationships", "Performance", "Identity"].every((g) => areasText.includes(g)));
+
+// 5. focus is capped at three
+for (const a of ["Body", "Money", "Home", "Marriage"]) {
+  const row = page.locator(`.tj-main >> text=${a}`).first();
+  await row.scrollIntoViewIfNeeded();
+}
+const focusBtns = await page.$$('.tj-main .tj-tap');
+let clicked = 0;
+for (const b of focusBtns) {
+  if ((await b.textContent())?.trim() === "in focus" && clicked < 4) { await b.click().catch(() => {}); clicked++; await page.waitForTimeout(120); }
+}
+const focusNote = (await page.textContent(".tj-main")) || "";
+ok("focus is capped at three", /3 of 3/.test(focusNote));
+
+// 6. an area opens and offers its own record
+await page.click('.tj-main >> text=Body');
+await page.waitForTimeout(400);
+const body = (await page.textContent(".tj-main")) || "";
+ok("an area opens with stands / better / next", /Where it stands/.test(body) && /The next actual move/.test(body));
+ok("an area carries its daily prompts", /Sleep/.test(body) && /Training/.test(body));
+
+// 7. Review absorbed Patterns, decisions and the level check
+await page.click('.tj-navitem:text-is("Review")');
+await page.waitForTimeout(400);
+const review = (await page.textContent(".tj-main")) || "";
+ok("Review holds the old Patterns tabs plus decisions and the level check",
+  ["Insights", "Blind spots", "Experiments", "Decisions", "Week", "Month", "Level check"].every((t) => review.includes(t)));
+
+// 8. themes: dawn on morning Today, dusk on Talk
 await page.click('.tj-navitem:text-is("Today")');
 await page.waitForTimeout(320);
 const isMorning = await page.$$eval('.tj-seg .tj-tap', (n) => n.map((x) => x.textContent.trim()).includes("Morning"));
@@ -72,7 +106,7 @@ await page.click('.tj-navitem:text-is("Talk")');
 await page.waitForTimeout(500);
 ok("Talk applies .tj-dusk", await page.$eval(".tj-root", (e) => e.classList.contains("tj-dusk")));
 
-// 5. typing survives a hard refresh
+// 9. typing survives a hard refresh
 await page.click('.tj-navitem:text-is("Today")');
 await page.waitForTimeout(350);
 const g1 = await page.waitForSelector('[aria-label="Gratitude 1"]', { timeout: 5000 });
@@ -83,7 +117,7 @@ await page.waitForSelector('[aria-label="Gratitude 1"]', { timeout: 10000 });
 const after = await page.inputValue('[aria-label="Gratitude 1"]');
 ok(`typing survives hard refresh (got "${after}")`, after === "Margo asleep on my shoulder");
 
-// 6. the flush path: type, immediately change day, come back
+// 10. the flush path: type, immediately change day, come back
 const g1b = await page.waitForSelector('[aria-label="Gratitude 2"]');
 await g1b.fill("The walk before the calls started");
 await page.click('[aria-label="Previous day"]');   // inside the 700ms debounce
@@ -93,19 +127,19 @@ await page.waitForTimeout(900);
 const back = await page.inputValue('[aria-label="Gratitude 2"]');
 ok(`text written just before leaving the day survives (got "${back}")`, back === "The walk before the calls started");
 
-// 7. AI affordance with no key reads as unavailable, and nothing crashes
-await page.click('.tj-navitem:text-is("Patterns")');
+// 11. AI affordance with no key reads as unavailable, and nothing crashes
+await page.click('.tj-navitem:text-is("Review")');
 await page.waitForTimeout(400);
 const patterns = (await page.textContent(".tj-main")) || "";
-ok("no key: Patterns still renders its counted layer", /Themes|Nothing counted yet/.test(patterns));
+ok("no key: Review still renders its counted layer", /Themes|Nothing counted yet/.test(patterns));
 
-// 8. 640px reading measure intact
-await page.click('.tj-navitem:text-is("Faith")');
+// 12. 640px reading measure intact
+await page.click('.tj-navitem:text-is("Journal")');
 await page.waitForTimeout(300);
 const w = await page.$eval(".tj-main", (e) => e.getBoundingClientRect().width);
 ok(`.tj-main stays at the 640 reading measure (${Math.round(w)}px)`, Math.round(w) <= 640);
 
-// 9. export → fresh profile → import round trip
+// 13. export → fresh profile → import round trip
 await page.click('.tj-navitem:text-is("Journal")');
 await page.waitForTimeout(350);
 const entry = await page.waitForSelector('[aria-label="Journal entry"]');
@@ -147,7 +181,7 @@ const restored = (await p2.textContent(".tj-main")) || "";
 ok("fresh profile imports the backup with entries intact",
   restored.includes("A line I would be upset to lose in a restore."));
 
-// 10. the serif face is actually served by the app, not silently falling back
+// 14. the serif face is actually served by the app, not silently falling back
 await page.goto(URL, { waitUntil: "networkidle" });
 await page.waitForSelector(".tj-nav", { timeout: 10000 });
 const fontOk = await page.evaluate(async () => {
@@ -164,7 +198,7 @@ const thirdParty = await page.evaluate(() =>
 );
 ok(`no third-party requests${thirdParty.length ? " — " + [...new Set(thirdParty)].join(", ") : ""}`, thirdParty.length === 0);
 
-// 11. no blocking dialogs anywhere in that whole run, including across reloads
+// 15. no blocking dialogs anywhere in that whole run, including across reloads
 ok(`no blocking dialogs${dialogs.length ? " — saw: " + dialogs.join(" | ") : ""}`, dialogs.length === 0);
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
