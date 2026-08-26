@@ -2,13 +2,15 @@
 
 ## What this is
 
-A personal journal and operating system, used every morning and evening by one person. Nine sections: Today (morning and evening modes), People, Faith, Journal, Patterns, Judgment, Library, Becoming, Talk.
+A personal journal and operating system, used every morning and evening by one person.
+
+Five sections: **Today** (morning and evening modes), **Areas**, **Journal**, **Review**, **Talk**. Five, because nine scrolled off the edge of an iPad and adding more made a taxonomy problem worse.
 
 It is **not** a drawing app. Handwriting is one surface inside it, in three places: the morning notebook, the daily declaration signature, and the Journal "Write" tab. `Ink` and `InkThumb` are the only drawing components.
 
 Roughly 90% of use is reading and typing; 10% is Apple Pencil. Both must be excellent. They are different problems, and work on one must not degrade the other.
 
-Origin: `TJ30-adaptive.jsx`, a single 3,400-line React 18 file written for Claude's artifact sandbox. Inline styles, one injected CSS string. No Tailwind, no CSS framework, no component library. Read it fully before changing anything.
+Origin: `TJ30-adaptive.jsx`, a single React 18 file written for Claude's artifact sandbox, now `src/App.jsx` at roughly 3,900 lines. Inline styles, one injected CSS string. No Tailwind, no CSS framework, no component library. Read it fully before changing anything.
 
 ## The design is not up for renegotiation
 
@@ -18,7 +20,7 @@ Do not:
 
 - Widen or remove the 640px `max-width` on `.tj-main`. That is a reading measure, not a bug. It stays narrow on every screen. The canvas is exempt and may use full width.
 - Shrink or remove section headers, eyebrow labels, dividers, or padding on reading screens. That whitespace is the product.
-- Replace the bottom text nav with icons, a sidebar, or a tab bar.
+- Replace the bottom text nav with icons, a sidebar, or a tab bar. It is text, it holds five items, it does not scroll, and every target is at least 44pt. Adding a sixth means taking one away.
 - Change any palette value, type size, or copy string.
 - Alter the `Mark` component or the labels "Your words," "Counted," "Generated." That provenance distinction is the point of the app.
 - Add Tailwind, a UI library, a router, or a state manager.
@@ -26,10 +28,25 @@ Do not:
 
 If a design change is genuinely required to solve a technical problem, propose it and wait.
 
+## Life areas
+
+The app's one taxonomy. `ANCHORS`, the Becoming goal buckets, `THEMES`, book `OUTCOMES` and the retrieval sections used to be five overlapping lists that disagreed; `AREA_DEFS` is the list now and the rest point at it. Do not add a sixth.
+
+Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest), **Relationships** (Marriage, Fatherhood, Friendship), **Performance** (Work, Mind), **Identity** (Faith, Character).
+
+- **Areas are data, not constants.** They can be added, renamed, retired and reordered. The list a man has at 36 is not the one he has at 46.
+- **Seasons.** Every area is *in focus*, *maintaining*, or *dormant*. **Three in focus, maximum.** Dormant is a deliberate, guilt-free choice — an area set down must not sit there accusing him. Eleven simultaneous focus areas is how a person levels up in none of them.
+- **Play & rest is not decoration.** Without it the app measures only striving, and a genuinely restful week reads as a failed one. That is a quiet way for a tool like this to make its owner worse. Do not quietly drop it.
+- **The morning follows the season.** With areas in focus, the morning asks about those and drops the generic rotation they replace. Flow length is something he controls by choosing what he is working on, not something he scrolls past.
+- **The level check** is the revisit loop: his own words from last time set beside what he would write today, then a forced re-choice of the three. The delta is the point, not a score. It reuses the `identity.versions` pattern.
+- Areas read their own id **plus their legacy section names** (`AREA_SECS`), so entries indexed before the restructure stay visible.
+
+`day.body`, `day.wife`, `day.daughter` and `day.faith` keep their existing shape and paths. Areas are a view over them, not a migration of them — which is why nothing written before the restructure had to move.
+
 ## Priority order when tradeoffs appear
 
 1. Never lose written data
-2. Reading and typing quality across the nine sections
+2. Reading and typing quality across the five sections
 3. Apple Pencil writing quality
 4. iPad usability, landscape first, portrait second
 5. Performance as content accumulates
@@ -50,7 +67,9 @@ Pure static site, no serverless proxy. The app calls the Anthropic API directly 
 
 Reasoning, so it isn't argued back: a proxy on a public URL is an open endpoint anyone who finds it can spend credits through, and this is a single-user app not worth owning an auth problem for. The key lives on the device, the same trust boundary as the journal itself.
 
-Check current Anthropic docs for the header permitting direct browser calls and for the correct model string. `claude-sonnet-4-6` in the source is a sandbox alias and is almost certainly not valid on the public API. Look both up; do not guess.
+Browser calls require the `anthropic-dangerous-direct-browser-access: true` header alongside `x-api-key` and `anthropic-version`. "Bring your own key" is the acknowledged use for it, and it is exactly this app's posture. Verified against the docs, not guessed.
+
+The model is `claude-opus-5`, in the `MODEL` constant. (An earlier draft of this file claimed `claude-sonnet-4-6` was a sandbox alias invalid on the public API — that was wrong; it is a real model id. Corrected so it does not get propagated again.)
 
 With no key set, every AI affordance degrades exactly as it already does when reflection is switched off in settings — counted and hand-written layers keep working, buttons say why. Follow the existing pattern. No error modals.
 
@@ -112,6 +131,6 @@ In standalone PWA mode: canvas fills the available application space; top toolba
 
 ## Verification before claiming done
 
-Browser: build succeeds and previews; all nine sections render; morning and evening themes both apply; typing survives a hard refresh; the JSON backup imports with entries, insights, books and handwriting intact; export from a fresh profile imports cleanly; with no key nothing crashes and AI buttons read as unavailable; with a key, "Read what I've written" in Patterns returns a real insight; strokes replay after refresh; routes survive direct navigation on Vercel.
+Browser: build succeeds and previews; all five sections render; the eleven areas seed and group; morning and evening themes both apply; typing survives a hard refresh; the JSON backup imports with entries, insights, books and handwriting intact; export from a fresh profile imports cleanly; with no key nothing crashes and AI buttons read as unavailable; with a key, "Read what I've written" in Patterns returns a real insight; strokes replay after refresh; routes survive direct navigation on Vercel.
 
 Physical iPad: see @docs/ipad-checklist.md. Emulation does not test any of it.
