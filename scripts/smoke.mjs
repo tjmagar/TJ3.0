@@ -269,9 +269,10 @@ await page.waitForSelector(".tj-nav", { timeout: 10000 });
 await page.click('.tj-navitem:text-is("Today")');
 await page.waitForTimeout(400);
 // walk the morning open so the sheet step is reachable
-const showRest = page.locator('button:has-text("Show the rest")');
-if (await showRest.count()) { await showRest.click(); await page.waitForTimeout(500); }
 const morning = (await page.textContent(".tj-main")) || "";
+ok("the whole morning is on screen — nothing behind a Show the rest",
+  !(await page.locator('button:has-text("Show the rest")').count()));
+ok("a scripture verse and a Stoic passage are there", /Scripture/.test(morning) && /From the Stoics/.test(morning));
 ok("the morning offers the sheet", /The sheet/.test(morning) && /already true/.test(morning));
 ok("the sheet offers type or by hand", /By hand/.test(morning));
 ok("the sheet lists the non-negotiable actions", /Non-negotiables/.test(morning));
@@ -285,8 +286,6 @@ if (await goal1.count()) {
   await page.waitForSelector(".tj-nav", { timeout: 10000 });
   /* the morning collapses back to the first unfinished step on load, so
      re-expand before looking for a field further down the flow */
-  const rest2 = page.locator('button:has-text("Show the rest")');
-  if (await rest2.count()) { await rest2.click(); await page.waitForTimeout(500); }
   const r2 = page.locator('[aria-label="Life goal 1"]');
   const kept = (await r2.count()) ? await r2.inputValue() : "";
   ok(`a rewritten goal survives a reload ("${kept.slice(0, 28)}…")`, kept.startsWith("I am the man"));
@@ -300,6 +299,11 @@ await page.waitForTimeout(700);
 const character = (await page.textContent(".tj-main")) || "";
 ok("Character holds the sheet editor", /Major life goals/.test(character) && /present tense/.test(character));
 ok("actions carry an everyday / weekday cadence", /Monday–Friday/.test(character));
+ok("the vision board offers his own slots", /Porsche Taycan/.test(character) && /Rolex Explorer/.test(character) && /Espresso machine/.test(character));
+ok("each area carries its own colour", (await page.evaluate(() => {
+  const el = document.querySelector(".tj-main > div[style]");
+  return el ? getComputedStyle(el).getPropertyValue("--accent").trim() : "";
+})).length > 0);
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();

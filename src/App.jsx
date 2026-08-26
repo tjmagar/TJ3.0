@@ -175,65 +175,69 @@ const AREA_GROUPS = ["Foundation", "Relationships", "Performance", "Identity"];
    unit. `goal` says which direction is good, so a delta can be coloured
    honestly rather than "up is green". The first metric is the area's headline. */
 const AREA_DEFS = [
-  { id: "body", label: "Body", group: "Foundation", day: "body", line: "Do the boring basics well.",
+  { id: "body", label: "Body", group: "Foundation", day: "body", line: "Do the boring basics well.", hue: "#1F7A5A",
     metrics: [
       { id: "sleep", label: "Sleep", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
       { id: "weight", label: "Weight", unit: "lb", kind: "number", goal: "flat", step: 0.2 },
       { id: "trained", label: "Trained", kind: "toggle", goal: "up" },
       { id: "energy", label: "Energy", kind: "scale", goal: "up" },
     ] },
-  { id: "money", label: "Money", group: "Foundation", day: "money", line: "Spend like the man who earned it.",
+  { id: "money", label: "Money", group: "Foundation", day: "money", line: "Spend like the man who earned it.", hue: "#1C6E4F",
     metrics: [
       { id: "net", label: "Net worth", unit: "$", kind: "currency", goal: "up", step: 100 },
       { id: "spent", label: "Spent today", unit: "$", kind: "currency", goal: "down", step: 5 },
       { id: "saved", label: "Saved", unit: "$", kind: "currency", goal: "up", step: 50 },
     ] },
-  { id: "home", label: "Home", group: "Foundation", day: "home", line: "Order where you live.",
+  { id: "home", label: "Home", group: "Foundation", day: "home", line: "Order where you live.", hue: "#8A5A2B",
     metrics: [
       { id: "order", label: "In order", kind: "scale", goal: "up" },
       { id: "fixed", label: "Put right", kind: "toggle", goal: "up" },
     ] },
-  { id: "play", label: "Play & rest", group: "Foundation", day: "play", line: "Rest is not the reward for finishing.",
+  { id: "play", label: "Play & rest", group: "Foundation", day: "play", line: "Rest is not the reward for finishing.", hue: "#A34A16",
     metrics: [
       { id: "rested", label: "Rested", kind: "scale", goal: "up" },
       { id: "funmin", label: "Time on something you enjoy", unit: "min", kind: "number", goal: "up", step: 15 },
     ] },
-  { id: "marriage", label: "Marriage", group: "Relationships", day: "wife", line: "Listen before solving.",
+  { id: "marriage", label: "Marriage", group: "Relationships", day: "wife", line: "Listen before solving.", hue: "#A03A5B",
     metrics: [
       { id: "connected", label: "Connected", kind: "scale", goal: "up" },
       { id: "together", label: "Time together", unit: "min", kind: "number", goal: "up", step: 15 },
     ] },
-  { id: "fatherhood", label: "Fatherhood", group: "Relationships", day: "daughter", line: "20 minutes fully present.",
+  { id: "fatherhood", label: "Fatherhood", group: "Relationships", day: "daughter", line: "20 minutes fully present.", hue: "#B0521C",
     metrics: [
       { id: "present", label: "Fully present", unit: "min", kind: "number", goal: "up", step: 10 },
       { id: "quality", label: "Quality", kind: "scale", goal: "up" },
     ] },
-  { id: "friendship", label: "Friendship", group: "Relationships", day: "friendship", line: "The friends you keep, you call.",
+  { id: "friendship", label: "Friendship", group: "Relationships", day: "friendship", line: "The friends you keep, you call.", hue: "#7A5CA8",
     metrics: [
       { id: "reached", label: "Reached out", kind: "toggle", goal: "up" },
       { id: "seen", label: "Saw someone", kind: "toggle", goal: "up" },
     ] },
-  { id: "work", label: "Work", group: "Performance", day: "work", line: "Improve judgment, not just activity.",
+  { id: "work", label: "Work", group: "Performance", day: "work", line: "Improve judgment, not just activity.", hue: "#1D5FA8",
     metrics: [
       { id: "deep", label: "Deep work", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
       { id: "judgment", label: "Judgment", kind: "scale", goal: "up" },
     ] },
-  { id: "mind", label: "Mind", group: "Performance", day: "mind", line: "Read something that changes a decision.",
+  { id: "mind", label: "Mind", group: "Performance", day: "mind", line: "Read something that changes a decision.", hue: "#2F5FA0",
     metrics: [
       { id: "read", label: "Reading", unit: "min", kind: "number", goal: "up", step: 10 },
       { id: "clarity", label: "Clarity", kind: "scale", goal: "up" },
     ] },
-  { id: "faith", label: "Faith", group: "Identity", day: "faith", line: "Prayer, scripture, or stillness.",
+  { id: "faith", label: "Faith", group: "Identity", day: "faith", line: "Prayer, scripture, or stillness.", hue: "#6B4FA8",
     metrics: [
       { id: "practice", label: "Practised", kind: "toggle", goal: "up" },
       { id: "still", label: "Stillness", unit: "min", kind: "number", goal: "up", step: 5 },
     ] },
-  { id: "character", label: "Character", group: "Identity", day: "character", line: "Keep the promises I made this morning.",
+  { id: "character", label: "Character", group: "Identity", day: "character", line: "Keep the promises I made this morning.", hue: "#A8452A",
     metrics: [
       { id: "kept", label: "Promises kept", kind: "scale", goal: "up" },
       { id: "steady", label: "Steady under pressure", kind: "scale", goal: "up" },
     ] },
 ];
+
+/* Contrast checked against the parchment ground that Areas renders on —
+   every one clears 4.5:1. Areas never renders on the dusk palette. */
+const hueOf = (id) => (AREA_DEFS.find((d) => d.id === id) || {}).hue || null;
 
 const metricsOf = (area) => (AREA_DEFS.find((d) => d.id === area.id) || {}).metrics || [];
 const ALL_METRICS = AREA_DEFS.flatMap((d) => (d.metrics || []).map((m) => ({ ...m, areaId: d.id })));
@@ -732,6 +736,18 @@ const EVENING_POOL = [
 
    Present tense on purpose: "I make $74,000 a month", not "reach $74k". A goal
    written as already true is doing different work than a target. */
+/* The vision board the paper sheet has a space for. TJ names what he is working
+   toward and drops in his own photographs; nothing ships with the app, because
+   the pictures should be his and no stock image would carry the same weight.
+   Stored as downscaled data URLs so they ride along in the JSON export. */
+const SEED_VISION = [
+  { label: "Porsche Taycan", note: "Black. 2026." },
+  { label: "Rolex Explorer", note: "White on white." },
+  { label: "Omega Speedmaster", note: "The Bond." },
+  { label: "The backyard", note: "Pool and the outdoor kitchen." },
+  { label: "Espresso machine", note: "Hunter green." },
+];
+
 const SEED_LIFE_GOALS = [
   "I am the man my daughter describes to her own kids.",
   "I am steady under pressure, at home first.",
@@ -829,6 +845,7 @@ const emptyCore = () => ({
   names: { wife: "Sara", daughter: "Margo" },
   anchorLines: ANCHORS.reduce((a, x) => ((a[x.id] = x.line), a), {}),
   identity: DEFAULT_IDENTITY.map((text) => ({ id: uid(), text, since: keyOf(new Date()), versions: [] })),
+  vision: SEED_VISION.map((v) => ({ id: uid(), ...v, img: "" })),
   lifeGoals: SEED_LIFE_GOALS.map((text) => ({ id: uid(), text, created: keyOf(new Date()) })),
   dailyActions: [
     { id: uid(), text: "I train before the day starts.", cadence: "everyday" },
@@ -2257,8 +2274,12 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
                 <div key={a.id} style={{ borderBottom: i < list.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
                   <Tap onClick={() => setOpen(a.id)}
                     style={{ display: "flex", width: "100%", alignItems: "baseline", justifyContent: "space-between", gap: 12, padding: "16px 0 6px", textAlign: "left" }}>
-                    <span style={{ flex: 1, fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: a.state === "dormant" ? C.ink28 : C.ink, letterSpacing: "-0.012em" }}>
-                      {a.label}
+                    <span style={{ display: "flex", alignItems: "center", gap: 11, flex: 1 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                        background: hueOf(a.id) || C.ink16, opacity: a.state === "dormant" ? 0.3 : 1 }} />
+                      <span style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: a.state === "dormant" ? C.ink28 : C.ink, letterSpacing: "-0.012em" }}>
+                        {a.label}
+                      </span>
                     </span>
                     <span style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: a.state === "focus" ? C.accent : C.ink16 }}>
                       {STATE_LABEL[a.state]}
@@ -2335,7 +2356,7 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
   const head = shown ? stat(shown) : null;
 
   return (
-    <div>
+    <div style={hueOf(area.id) ? { "--accent": hueOf(area.id), "--accentSoft": hueOf(area.id) + "22" } : undefined}>
       <Tap onClick={back} style={{ fontFamily: SANS, fontSize: 13, color: C.ink45, padding: "14px 0 4px", minHeight: 44 }}>‹ Areas</Tap>
 
       <div style={{ paddingTop: 4, paddingBottom: 18 }}>
@@ -3185,6 +3206,44 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-kpi { display: flex; flex-wrap: wrap; gap: 0 28px; }
 .tj-range { display: flex; gap: 16px; }
 
+.tj-vision {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 10px;
+}
+.tj-vitem {
+  position: relative; display: block; overflow: hidden; cursor: pointer;
+  aspect-ratio: 4 / 3; border-radius: 8px;
+  background-color: var(--raise); background-size: cover; background-position: center;
+  border: 1px solid var(--line);
+  transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .3s ease;
+}
+.tj-vitem:active { transform: scale(.985); }
+@media (hover: hover) { .tj-vitem:hover { border-color: var(--accent); } }
+.tj-vscrim { position: absolute; inset: 0; }
+.tj-vitem.tj-has .tj-vscrim {
+  background: linear-gradient(to top, rgba(18,12,8,0.78), rgba(18,12,8,0.12) 58%, rgba(18,12,8,0));
+}
+.tj-vtext { position: absolute; left: 13px; right: 13px; bottom: 11px; display: block; }
+.tj-vlabel {
+  display: block; font-family: ${SERIF}; font-size: 17px; font-weight: 300; line-height: 1.25;
+  letter-spacing: -0.012em; color: var(--ink);
+}
+.tj-vnote {
+  display: block; font-family: ${SANS}; font-size: 11.5px; margin-top: 3px; color: var(--ink45);
+}
+.tj-vadd {
+  display: block; font-family: ${SANS}; font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; margin-top: 8px; color: var(--accent);
+}
+.tj-vitem.tj-has .tj-vlabel { color: #FFF6EC; }
+.tj-vitem.tj-has .tj-vnote { color: rgba(255,246,236,0.74); }
+
+.tj-scripture {
+  margin-top: 24px; padding: 20px 22px; border-radius: 3px;
+  background: var(--raise); border-left: 2px solid var(--accent);
+  transition: background .6s ease;
+}
+
 .tj-prompt {
   background: var(--raise); border: 1px solid var(--line); border-radius: 6px;
   transition: border-color .3s ease, background .6s ease;
@@ -3246,15 +3305,22 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 
 .tj-root.tj-dawn {
-  --paper:#FDF2E9; --raise:#FFFAF4; --ink:#231710;
+  --paper:#FBEEE2; --raise:#FFF8F1; --ink:#231710;
   --ink70:rgba(35,23,16,0.70); --ink45:rgba(35,23,16,0.48);
   --ink28:rgba(35,23,16,0.32); --ink16:rgba(35,23,16,0.18);
   --line:rgba(35,23,16,0.11); --lineSoft:rgba(35,23,16,0.06);
   --accent:#A8452A; --accentSoft:rgba(168,69,42,0.13);
-  --head:rgba(253,242,233,0.93); --headFade:rgba(253,242,233,0);
-  --nav:rgba(253,242,233,0.82);
+  --head:rgba(251,238,226,0.93); --headFade:rgba(251,238,226,0);
+  --nav:rgba(251,238,226,0.84);
 }
-.tj-root.tj-dawn .tj-wash { opacity: .9; }
+/* the morning gets actual sunrise behind it rather than a flat tint */
+.tj-root.tj-dawn .tj-wash {
+  opacity: 1;
+  background:
+    radial-gradient(120% 46% at 78% -6%, rgba(230,138,58,0.30), transparent 60%),
+    radial-gradient(110% 40% at 14% -2%, rgba(198,74,44,0.20), transparent 62%),
+    linear-gradient(to bottom, rgba(255,214,170,0.42), rgba(251,238,226,0) 46%);
+}
 
 .tj-quote {
   margin-top: 26px; padding: 22px 22px 20px; border-radius: 3px;
@@ -3337,6 +3403,59 @@ const QUOTES = [
   { w: "Your time is limited. Don't waste it living someone else's life.", a: "Steve Jobs", t: ["identity", "presence"], n: "" },
   { w: "A busy calendar and a busy mind will destroy your ability to create.", a: "Naval Ravikant", t: ["simplicity", "heavy"], n: "" },
   { w: "Play long-term games with long-term people.", a: "Naval Ravikant", t: ["steady", "possibility"], n: "" },
+];
+
+/* Scripture, World English Bible — public domain, so it ships with the app and
+   works offline like everything else. */
+const VERSES = [
+  { t: "Be strong and courageous. Don't be afraid, neither be dismayed.", r: "Joshua 1:9" },
+  { t: "Whatever you do, work heartily, as for the Lord, and not for men.", r: "Colossians 3:23" },
+  { t: "A soft answer turns away wrath, but a harsh word stirs up anger.", r: "Proverbs 15:1" },
+  { t: "He who is faithful in a very little is faithful also in much.", r: "Luke 16:10" },
+  { t: "Let all that you do be done in love.", r: "1 Corinthians 16:14" },
+  { t: "Commit your deeds to the Lord, and your plans shall succeed.", r: "Proverbs 16:3" },
+  { t: "Be still, and know that I am God.", r: "Psalm 46:10" },
+  { t: "Iron sharpens iron; so a man sharpens his friend's countenance.", r: "Proverbs 27:17" },
+  { t: "Don't be anxious for tomorrow, for tomorrow will be anxious for itself.", r: "Matthew 6:34" },
+  { t: "The plans of the diligent surely lead to profit; and everyone who is hasty surely rushes to poverty.", r: "Proverbs 21:5" },
+  { t: "Let us not be weary in doing good, for we will reap in due season if we don't give up.", r: "Galatians 6:9" },
+  { t: "Set your mind on the things that are above, not on the things that are on the earth.", r: "Colossians 3:2" },
+  { t: "He who rules his spirit is better than he who takes a city.", r: "Proverbs 16:32" },
+  { t: "Let every man be swift to hear, slow to speak, and slow to anger.", r: "James 1:19" },
+  { t: "As iron is blunt, and one doesn't sharpen the edge, then must he use more strength.", r: "Ecclesiastes 10:10" },
+  { t: "Whoever walks with wise men will be wise, but a companion of fools will suffer harm.", r: "Proverbs 13:20" },
+  { t: "Trust in the Lord with all your heart, and don't lean on your own understanding.", r: "Proverbs 3:5" },
+  { t: "Do all things without murmurings and disputes.", r: "Philippians 2:14" },
+  { t: "For God didn't give us a spirit of fear, but of power, love, and self-control.", r: "2 Timothy 1:7" },
+  { t: "A man's gift makes room for him, and brings him before great men.", r: "Proverbs 18:16" },
+  { t: "Better is the end of a thing than its beginning. The patient in spirit is better than the proud in spirit.", r: "Ecclesiastes 7:8" },
+];
+
+/* The Stoics themselves, in public-domain translation — Marcus, Seneca and
+   Epictetus are the sources The Daily Stoic draws on. Holiday's own commentary
+   is his, so it is not reproduced here. */
+const STOIC = [
+  { t: "You have power over your mind — not outside events. Realize this, and you will find strength.", r: "Marcus Aurelius" },
+  { t: "We suffer more often in imagination than in reality.", r: "Seneca" },
+  { t: "It is not that we have a short time to live, but that we waste much of it.", r: "Seneca" },
+  { t: "Waste no more time arguing what a good man should be. Be one.", r: "Marcus Aurelius" },
+  { t: "Man is not worried by real problems so much as by his imagined anxieties about real problems.", r: "Epictetus" },
+  { t: "The impediment to action advances action. What stands in the way becomes the way.", r: "Marcus Aurelius" },
+  { t: "No man is free who is not master of himself.", r: "Epictetus" },
+  { t: "Begin at once to live, and count each separate day as a separate life.", r: "Seneca" },
+  { t: "How much trouble he avoids who does not look to see what his neighbour says or does.", r: "Marcus Aurelius" },
+  { t: "First say to yourself what you would be; then do what you have to do.", r: "Epictetus" },
+  { t: "Luck is what happens when preparation meets opportunity.", r: "Seneca" },
+  { t: "If it is not right, do not do it. If it is not true, do not say it.", r: "Marcus Aurelius" },
+  { t: "He who fears death will never do anything worthy of a man who is alive.", r: "Seneca" },
+  { t: "It's not what happens to you, but how you react to it that matters.", r: "Epictetus" },
+  { t: "Confine yourself to the present.", r: "Marcus Aurelius" },
+  { t: "Difficulties strengthen the mind, as labour does the body.", r: "Seneca" },
+  { t: "The best revenge is to be unlike him who performed the injury.", r: "Marcus Aurelius" },
+  { t: "Wealth consists not in having great possessions, but in having few wants.", r: "Epictetus" },
+  { t: "Nowhere can man find a quieter or more untroubled retreat than in his own soul.", r: "Marcus Aurelius" },
+  { t: "Associate with people who are likely to improve you.", r: "Seneca" },
+  { t: "Very little is needed to make a happy life; it is all within yourself, in your way of thinking.", r: "Marcus Aurelius" },
 ];
 
 const OPENERS = [
@@ -3813,7 +3932,6 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
      discarded the first. That killed "Write it in my voice" and "Another".
      The two-segment path merges against current state, so calls compose. */
   const setAm = (k, v) => setD(["am", k], v);
-  const [openAll, setOpenAll] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
   const [writeMode, setWriteMode] = useState(false);
   const [full, setFull] = useState(false);
@@ -3829,6 +3947,8 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   }, [date, core.openingFavs]);
 
   const quote = useMemo(() => pickQuote(date, am.energy, am.headspace, themes), [date, am.energy, am.headspace, themes]);
+  const verse = VERSES[hashStr(date + "v") % VERSES.length];
+  const stoic = STOIC[hashStr(date + "s") % STOIC.length];
 
   const affirmations = (core.affirmations || []).filter((a) => !a.archived);
   const todaysAff = useMemo(() => {
@@ -3887,8 +4007,10 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   if (shows(freq, date, "declaration")) steps.push({ id: "declaration", done: () => has(am.declaration) });
 
   const firstOpen = steps.findIndex((s) => !s.done());
-  const visible = openAll || firstOpen === -1 ? steps.length : firstOpen + 1;
-  const on = (id) => { const i = steps.findIndex((s) => s.id === id); return i > -1 && i < visible; };
+  /* Everything is on screen. Progressive disclosure hid the sheet and the
+     question behind a "Show the rest" TJ never found, and a morning you have
+     to unfold is a longer morning, not a shorter one. */
+  const on = (id) => steps.some((s) => s.id === id);
   const required = steps.filter((x) => x.id !== "deeper");
   const complete = required.length > 2 && required.every((x) => x.done());
   const signoff = SIGNOFFS[hashStr(date + "so") % SIGNOFFS.length];
@@ -3985,6 +4107,12 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
         <Rule style={{ marginTop: 6 }} />
       </div>
 
+      {(core.vision || []).some((v) => v.img) && (
+        <div style={{ paddingTop: 20 }}>
+          <VisionBoard core={core} setC={setC} />
+        </div>
+      )}
+
       {/* mood, two taps, then the quote lands on it */}
       <div style={{ paddingTop: 24 }}>
         {[["energy", "Energy", ENERGY], ["headspace", "Headspace", HEADSPACE]].map(([k, label, opts]) => (
@@ -4001,6 +4129,18 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
       </div>
 
       <Quote quote={quote} core={core} setC={setC} />
+
+      <div className="tj-scripture">
+        <Eyebrow style={{ color: C.ink28 }}>Scripture</Eyebrow>
+        <div style={{ fontFamily: SERIF, fontSize: 18.5, fontWeight: 300, color: C.ink, lineHeight: 1.6, marginTop: 10 }}>{verse.t}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, letterSpacing: "0.09em", textTransform: "uppercase", color: C.ink45, marginTop: 10 }}>{verse.r}</div>
+      </div>
+
+      <div className="tj-scripture">
+        <Eyebrow style={{ color: C.ink28 }}>From the Stoics</Eyebrow>
+        <div style={{ fontFamily: SERIF, fontSize: 18.5, fontWeight: 300, fontStyle: "italic", color: C.ink, lineHeight: 1.6, marginTop: 10 }}>{stoic.t}</div>
+        <div style={{ fontFamily: SANS, fontSize: 11.5, letterSpacing: "0.09em", textTransform: "uppercase", color: C.ink45, marginTop: 10 }}>{stoic.r}</div>
+      </div>
 
       {on("gratitude") && (
         <div className="tj-reveal">
@@ -4215,11 +4355,7 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
         </div>
       )}
 
-      {!openAll && firstOpen > -1 && firstOpen < steps.length - 1 && (
-        <Ghost onClick={() => setOpenAll(true)}><span style={{ color: C.accent, marginRight: 8 }}>—</span>Show the rest</Ghost>
-      )}
-
-      {suggestion && visible >= steps.length - 1 && (
+      {suggestion && (
         <div style={{ marginTop: 34, paddingTop: 20, borderTop: `1px solid ${C.line}` }}>
           <Mark kind="you" detail="from your own notes" />
           <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 300, fontStyle: "italic", color: C.ink70, lineHeight: 1.55, marginTop: 10 }}>{suggestion.t}</div>
@@ -4318,6 +4454,9 @@ function DailySheet({ core, setC, day, setD, date, ink, setInk, index }) {
       {actions.length > 0 && (
         <div style={{ marginTop: 26, paddingTop: 20, borderTop: `1px solid ${C.line}` }}>
           <Eyebrow style={{ marginBottom: 4 }}>Non-negotiables</Eyebrow>
+          <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.ink45, lineHeight: 1.6, paddingBottom: 6 }}>
+            The few things you do whether or not you feel like it. Tap one when it's done.
+          </div>
           {actions.map((a, i) => {
             const on = !!(sheet.did || {})[a.id];
             return (
@@ -4346,6 +4485,66 @@ function DailySheet({ core, setC, day, setD, date, ink, setInk, index }) {
   );
 }
 
+/* Photographs are downscaled on the way in — a phone shot is several megabytes
+   and would bloat both storage and the JSON export for no visible gain. */
+function readImage(file, maxW = 1400, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onerror = () => reject(new Error("Could not read that file"));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That doesn't look like an image"));
+      img.onload = () => {
+        const scale = Math.min(1, maxW / img.width);
+        const c = document.createElement("canvas");
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        const ctx = c.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas unavailable"));
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL("image/jpeg", quality));
+      };
+      img.src = String(r.result);
+    };
+    r.readAsDataURL(file);
+  });
+}
+
+function VisionBoard({ core, setC, editable }) {
+  const items = core.vision || [];
+  const [busy, setBusy] = useState(null);
+  const set = (id, patch) => setC("vision", items.map((v) => (v.id === id ? { ...v, ...patch } : v)));
+
+  const pick = async (id, file) => {
+    if (!file) return;
+    setBusy(id);
+    try { set(id, { img: await readImage(file) }); } catch (e) { /* leave the slot empty */ }
+    setBusy(null);
+  };
+
+  if (!items.length) return null;
+
+  return (
+    <div className="tj-vision">
+      {items.map((v) => (
+        <label key={v.id} className={"tj-vitem" + (v.img ? " tj-has" : "")}
+          style={v.img ? { backgroundImage: `url(${v.img})` } : undefined}>
+          {editable && (
+            <input type="file" accept="image/*" style={{ display: "none" }}
+              onChange={(e) => pick(v.id, e.target.files && e.target.files[0])} />
+          )}
+          <span className="tj-vscrim" />
+          <span className="tj-vtext">
+            <span className="tj-vlabel">{v.label}</span>
+            {v.note && <span className="tj-vnote">{v.note}</span>}
+            {!v.img && editable && <span className="tj-vadd">{busy === v.id ? "Adding…" : "Add a photo"}</span>}
+          </span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 /* editing the sheet itself lives with Character, not in the morning */
 function SheetEditor({ core, setC }) {
   const goals = core.lifeGoals || [];
@@ -4368,6 +4567,13 @@ function SheetEditor({ core, setC }) {
           <span style={{ color: C.accent, marginRight: 8 }}>+</span>Add a life goal
         </Ghost>
         <Note>Write them as facts, not targets. "I make $74,000 a month" does different work than "reach $74k".</Note>
+      </Section>
+
+      <Section label="What you're working toward" note="your own photographs" top={20}>
+        <div style={{ paddingTop: 14 }}>
+          <VisionBoard core={core} setC={setC} editable />
+        </div>
+        <Note>Tap a card to add a picture from your camera roll. They stay on this device and travel with your JSON export.</Note>
       </Section>
 
       <Section label="Non-negotiables" note="what you do whether you feel like it or not">
