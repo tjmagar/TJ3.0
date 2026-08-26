@@ -305,5 +305,27 @@ ok("each area carries its own colour", (await page.evaluate(() => {
   return el ? getComputedStyle(el).getPropertyValue("--accent").trim() : "";
 })).length > 0);
 
+// 19. the vision board: add a photo, and it must survive a reload
+{
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const shot = path.join(os.tmpdir(), "tj-vision-test.png");
+  fs.writeFileSync(shot, png);
+  await page.click('.tj-navitem:text-is("Areas")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-main >> text=Character');
+  await page.waitForTimeout(900);
+  ok("the board is editable from Character", (await page.$$('.tj-vitem input[type="file"]')).length >= 5);
+  await page.setInputFiles('.tj-vitem input[type="file"]', shot);
+  await page.waitForTimeout(2500);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".tj-nav", { timeout: 10000 });
+  await page.waitForTimeout(1400);
+  /* computed style, not the style attribute — React serialises that differently
+     and checking it produced a false failure once */
+  const inMorning = await page.$$eval(".tj-vision .tj-vitem",
+    (n) => n.filter((x) => getComputedStyle(x).backgroundImage.includes("data:image")).length);
+  ok(`a vision photo survives a reload and rides the morning (${inMorning})`, inMorning >= 1);
+}
+
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();

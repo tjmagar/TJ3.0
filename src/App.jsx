@@ -3223,6 +3223,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-vitem.tj-has .tj-vscrim {
   background: linear-gradient(to top, rgba(18,12,8,0.78), rgba(18,12,8,0.12) 58%, rgba(18,12,8,0));
 }
+.tj-vcard { display: block; }
 .tj-vtext { position: absolute; left: 13px; right: 13px; bottom: 11px; display: block; }
 .tj-vlabel {
   display: block; font-family: ${SERIF}; font-size: 17px; font-weight: 300; line-height: 1.25;
@@ -3232,9 +3233,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   display: block; font-family: ${SANS}; font-size: 11.5px; margin-top: 3px; color: var(--ink45);
 }
 .tj-vadd {
-  display: block; font-family: ${SANS}; font-size: 10.5px; letter-spacing: 0.1em;
-  text-transform: uppercase; margin-top: 8px; color: var(--accent);
+  position: absolute; left: 0; right: 0; bottom: 11px; text-align: center;
+  font-family: ${SANS}; font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent);
 }
+.tj-vitem.tj-has .tj-vadd { color: #FFF6EC; }
 .tj-vitem.tj-has .tj-vlabel { color: #FFF6EC; }
 .tj-vitem.tj-has .tj-vnote { color: rgba(255,246,236,0.74); }
 
@@ -4513,34 +4516,69 @@ function readImage(file, maxW = 1400, quality = 0.82) {
 function VisionBoard({ core, setC, editable }) {
   const items = core.vision || [];
   const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState("");
   const set = (id, patch) => setC("vision", items.map((v) => (v.id === id ? { ...v, ...patch } : v)));
 
   const pick = async (id, file) => {
     if (!file) return;
-    setBusy(id);
-    try { set(id, { img: await readImage(file) }); } catch (e) { /* leave the slot empty */ }
+    setBusy(id); setErr("");
+    try { set(id, { img: await readImage(file) }); }
+    catch (e) { setErr(String(e.message || e)); }
     setBusy(null);
   };
 
-  if (!items.length) return null;
+  if (!items.length && !editable) return null;
 
   return (
-    <div className="tj-vision">
-      {items.map((v) => (
-        <label key={v.id} className={"tj-vitem" + (v.img ? " tj-has" : "")}
-          style={v.img ? { backgroundImage: `url(${v.img})` } : undefined}>
-          {editable && (
-            <input type="file" accept="image/*" style={{ display: "none" }}
-              onChange={(e) => pick(v.id, e.target.files && e.target.files[0])} />
-          )}
-          <span className="tj-vscrim" />
-          <span className="tj-vtext">
-            <span className="tj-vlabel">{v.label}</span>
-            {v.note && <span className="tj-vnote">{v.note}</span>}
-            {!v.img && editable && <span className="tj-vadd">{busy === v.id ? "Adding…" : "Add a photo"}</span>}
-          </span>
-        </label>
-      ))}
+    <div>
+      <div className="tj-vision">
+        {items.map((v) => (
+          <div key={v.id} className="tj-vcard">
+            {/* the picture is its own target so the text fields below stay editable */}
+            <label className={"tj-vitem" + (v.img ? " tj-has" : "")}
+              style={v.img ? { backgroundImage: `url(${v.img})` } : undefined}>
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={(e) => pick(v.id, e.target.files && e.target.files[0])} />
+              <span className="tj-vscrim" />
+              {!editable && (
+                <span className="tj-vtext">
+                  <span className="tj-vlabel">{v.label}</span>
+                  {v.note && <span className="tj-vnote">{v.note}</span>}
+                </span>
+              )}
+              {editable && (
+                <span className="tj-vadd">
+                  {busy === v.id ? "Adding…" : v.img ? "Replace" : "Add a photo"}
+                </span>
+              )}
+            </label>
+
+            {editable && (
+              <div style={{ paddingTop: 9 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <Grow serif size={16.5} value={v.label} ariaLabel="What you're working toward"
+                      onChange={(t) => set(v.id, { label: t })} placeholder="Name it" />
+                    <Grow size={12.5} value={v.note} ariaLabel="Detail"
+                      onChange={(t) => set(v.id, { note: t })} placeholder="The detail that makes it specific"
+                      color={C.ink45} />
+                  </div>
+                  <Tap onClick={() => setC("vision", items.filter((x) => x.id !== v.id))} aria="Remove"
+                    style={{ color: C.ink16, fontSize: 13, padding: "8px 0 8px 6px", minHeight: 44 }}>×</Tap>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {editable && (
+        <>
+          <Ghost onClick={() => setC("vision", [...items, { id: uid(), label: "", note: "", img: "" }])}>
+            <span style={{ color: C.accent, marginRight: 8 }}>+</span>Add a card
+          </Ghost>
+          {err && <Note>{err}</Note>}
+        </>
+      )}
     </div>
   );
 }
