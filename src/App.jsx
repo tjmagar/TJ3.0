@@ -328,6 +328,7 @@ function dayToIndexRows(dateKey, day, journal) {
     (day.evening || []).forEach((a) => push("evening", a.q, a.a));
     (day.priorities || []).forEach((p) => p.t && push("morning", "What matters today", p.t));
     for (const [aid, v] of Object.entries(day.areaToday || {})) push(aid, "In focus today", v);
+    for (const v of Object.values((day.sheet || {}).wrote || {})) push("character", "Written again today", v);
     /* every area files under its own id from here on */
     for (const d of AREA_DEFS) {
       const o = day[d.day] || {};
@@ -723,6 +724,23 @@ const EVENING_POOL = [
   "What did I get wrong, and how quickly did I admit it?",
 ];
 
+/* The daily goal sheet. Its mechanic is not "set goals" — it is rewriting the
+   same goals, in present tense, by your own hand, every single day. The app
+   already showed TJ his identity statements; it never made him re-inscribe
+   them, which is the whole point of the paper version.
+
+   Present tense on purpose: "I make $74,000 a month", not "reach $74k". A goal
+   written as already true is doing different work than a target. */
+const SEED_LIFE_GOALS = [
+  "I am the man my daughter describes to her own kids.",
+  "I am steady under pressure, at home first.",
+];
+
+/* Everyday vs weekdays, kept from the sheet — some things do not happen on a
+   Saturday and pretending otherwise just manufactures a broken streak. */
+const isWeekday = (k) => { const n = parseKey(k).getDay(); return n >= 1 && n <= 5; };
+const dueToday = (a, dateKey) => a.cadence !== "weekdays" || isWeekday(dateKey);
+
 const DEFAULT_IDENTITY = [
   "I can be frustrated without making someone else feel small.",
   "My family gets presence, not leftovers.",
@@ -758,6 +776,7 @@ const emptyDay = (date) => ({
   money: {}, home: {}, play: {}, friendship: {}, work: {}, mind: {}, character: {},
   areaToday: {},
   metrics: {},
+  sheet: { wrote: {}, did: {} },
   daughter: { present: "", laugh: "", taught: "", memory: "", ritual: "" },
   faith: { reading: "", stood: "", prayer: "", gratitude: "", question: "", action: "" },
   body: { sleep: "", training: "", nutrition: "", energy: "", recovery: "", alcohol: "", stress: "" },
@@ -809,6 +828,11 @@ const emptyCore = () => ({
   names: { wife: "Sara", daughter: "Margo" },
   anchorLines: ANCHORS.reduce((a, x) => ((a[x.id] = x.line), a), {}),
   identity: DEFAULT_IDENTITY.map((text) => ({ id: uid(), text, since: keyOf(new Date()), versions: [] })),
+  lifeGoals: SEED_LIFE_GOALS.map((text) => ({ id: uid(), text, created: keyOf(new Date()) })),
+  dailyActions: [
+    { id: uid(), text: "I train before the day starts.", cadence: "everyday" },
+    { id: uid(), text: "I do the hardest task before reactive work.", cadence: "weekdays" },
+  ],
   goals: [],
   nonNegotiables: [
     { id: uid(), label: "Wake and sleep window" },
@@ -2435,6 +2459,11 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
         </Section>
       )}
       {area.id === "character" && (
+        <Section label="The daily sheet" note="what you rewrite each morning" top={34}>
+          <SheetEditor core={core} setC={setC} />
+        </Section>
+      )}
+      {area.id === "character" && (
         <Section label="Becoming" note="identity, goals, the non-negotiables" top={34}>
           <Becoming core={core} setC={setC} index={index} ai={ai} aiWhy={aiWhy} date={date} embedded />
         </Section>
@@ -3698,6 +3727,8 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
      the generic rotation those areas replace. Length becomes something TJ
      controls by choosing what he is working on. */
   const focus = focusAreas(core);
+  const sheetGoals = (core.lifeGoals || []).filter((g) => g.text.trim());
+  const sheetActions = (core.dailyActions || []).filter((a) => a.text.trim() && dueToday(a, date));
   /* Was `setD(["am"], { ...am, [k]: v })`, which spread a stale closure: two
      calls in one handler both built from the same `am`, so the second silently
      discarded the first. That killed "Write it in my voice" and "Another".
@@ -3766,6 +3797,11 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   steps.push({ id: "three", done: () => day.priorities.some((p) => has(p.t)) });
   if (mode !== "quick" && shows(freq, date, "hard")) steps.push({ id: "hard", done: () => has(am.hard) });
   if (mode === "deep") steps.push({ id: "deeper", done: () => (day.morning || []).some((q) => has(q.a)) });
+  if (sheetGoals.length || sheetActions.length) steps.push({
+    id: "sheet",
+    done: () => sheetGoals.every((g) => has(((day.sheet || {}).wrote || {})[g.id]))
+             && sheetActions.every((a) => ((day.sheet || {}).did || {})[a.id]),
+  });
   if (shows(freq, date, "declaration")) steps.push({ id: "declaration", done: () => has(am.declaration) });
 
   const firstOpen = steps.findIndex((s) => !s.done());
@@ -4056,6 +4092,12 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
         </div>
       )}
 
+      {on("sheet") && (sheetGoals.length > 0 || sheetActions.length > 0) && (
+        <div className="tj-reveal">
+          <DailySheet core={core} setC={setC} day={day} setD={setD} date={date} ink={ink} setInk={setInk} index={index} />
+        </div>
+      )}
+
       {on("declaration") && (
         <div className="tj-reveal">
           <Section label="Today" note={am.declarationSrc === "generated" ? "" : "assembled from what you wrote"}>
@@ -4111,6 +4153,167 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
           <div style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, marginTop: 12 }}>{longDate(date)}</div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* The sheet. Yesterday's wording sits behind today's blank line as a ghost —
+   the way the paper version works, where you look at the last one and write it
+   out again. Typed or handwritten; the Pencil is the truer version. */
+function DailySheet({ core, setC, day, setD, date, ink, setInk, index }) {
+  const [byHand, setByHand] = useState(false);
+  const goals = (core.lifeGoals || []).filter((g) => g.text.trim());
+  const actions = (core.dailyActions || []).filter((a) => a.text.trim() && dueToday(a, date));
+  const sheet = day.sheet || { wrote: {}, did: {} };
+
+  /* what he wrote for this goal the last time he wrote it at all */
+  const ghosts = useMemo(() => {
+    const rows = index.filter((r) => r.q === "Written again today" && r.d < date).sort((a, b) => (a.d < b.d ? 1 : -1));
+    return rows;
+  }, [index, date]);
+
+  const run = useMemo(() => {
+    const days = new Set(index.filter((r) => r.q === "Written again today").map((r) => r.d));
+    let n = 0;
+    for (let i = 0; ; i++) {
+      const k = addDays(date, -i);
+      if (days.has(k)) n += 1;
+      else break;
+    }
+    return n;
+  }, [index, date]);
+
+  const wroteAll = goals.length > 0 && goals.every((g) => (sheet.wrote || {})[g.id] && sheet.wrote[g.id].trim());
+  const didAll = actions.length > 0 && actions.every((a) => (sheet.did || {})[a.id]);
+
+  return (
+    <Section label="The sheet" note={run > 0 ? `${run} day${run === 1 ? "" : "s"} running` : "write them out"}>
+      <div style={{ fontFamily: SERIF, fontSize: 19.5, fontWeight: 300, color: C.ink, lineHeight: 1.4, letterSpacing: "-0.014em", padding: "20px 0 6px" }}>
+        Write your life out as though it is already true.
+      </div>
+
+      <div style={{ display: "flex", gap: 20, paddingBottom: 6 }}>
+        {[["type", "Type"], ["hand", "By hand"]].map(([v, l]) => (
+          <Tap key={v} onClick={() => setByHand(v === "hand")}
+            style={{ fontFamily: SANS, fontSize: 12.5, padding: "10px 0", minHeight: 44, color: (byHand ? "hand" : "type") === v ? C.accent : C.ink28 }}>{l}</Tap>
+        ))}
+      </div>
+
+      {byHand ? (
+        <div style={{ paddingTop: 6 }}>
+          {goals.map((g) => (
+            <div key={g.id} style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 300, fontStyle: "italic", color: C.ink45, lineHeight: 1.5, padding: "5px 0" }}>{g.text}</div>
+          ))}
+          <div style={{ paddingTop: 12 }}>
+            <Ink value={ink.sheet} onChange={(v) => setInk("sheet", v)} height={320} label="Goal sheet" />
+          </div>
+          <Note>Copy them out in your own hand. Nothing here is converted to text.</Note>
+        </div>
+      ) : (
+        <div style={{ paddingTop: 4 }}>
+          {goals.map((g, i) => {
+            const prior = ghosts.find((r) => (r.t || "").slice(0, 24) === g.text.slice(0, 24));
+            return (
+              <div key={g.id} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "14px 0", borderBottom: i < goals.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                <span style={{ fontFamily: SANS, fontSize: 11, color: C.ink16, marginTop: 9, letterSpacing: "0.1em", minWidth: 16 }}>{pad(i + 1)}</span>
+                <div style={{ flex: 1 }}>
+                  <Grow serif size={18.5} value={(sheet.wrote || {})[g.id] || ""}
+                    ariaLabel={`Life goal ${i + 1}`}
+                    onChange={(v) => setD(["sheet", "wrote"], { ...(sheet.wrote || {}), [g.id]: v })}
+                    placeholder={g.text} />
+                  {prior && (
+                    <div style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.06em", color: C.ink16, marginTop: 6 }}>
+                      last written {midDate(prior.d)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {goals.length === 0 && <Empty>No life goals written yet. Add them in Areas → Character.</Empty>}
+        </div>
+      )}
+
+      {actions.length > 0 && (
+        <div style={{ marginTop: 26, paddingTop: 20, borderTop: `1px solid ${C.line}` }}>
+          <Eyebrow style={{ marginBottom: 4 }}>What I do regardless</Eyebrow>
+          {actions.map((a, i) => {
+            const on = !!(sheet.did || {})[a.id];
+            return (
+              <Tap key={a.id} onClick={() => setD(["sheet", "did"], { ...(sheet.did || {}), [a.id]: !on })}
+                style={{ display: "flex", width: "100%", alignItems: "flex-start", gap: 14, textAlign: "left",
+                  padding: "15px 0", minHeight: 44, borderBottom: i < actions.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                <span style={{ display: "block", width: 15, height: 1, background: on ? C.accent : C.ink16, marginTop: 13, transition: "background .4s", flexShrink: 0 }} />
+                <span style={{ flex: 1, fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, lineHeight: 1.5, color: on ? C.ink28 : C.ink70, transition: "color .4s" }}>
+                  {a.text}
+                </span>
+                {a.cadence === "weekdays" && (
+                  <span style={{ fontFamily: SANS, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", color: C.ink16, marginTop: 6 }}>M–F</span>
+                )}
+              </Tap>
+            );
+          })}
+        </div>
+      )}
+
+      {wroteAll && didAll && (
+        <div style={{ paddingTop: 18 }}>
+          <Mark kind="counted" detail={`${run + (run ? 0 : 1)} days running`} />
+        </div>
+      )}
+    </Section>
+  );
+}
+
+/* editing the sheet itself lives with Character, not in the morning */
+function SheetEditor({ core, setC }) {
+  const goals = core.lifeGoals || [];
+  const actions = core.dailyActions || [];
+  return (
+    <div>
+      <Section label="Major life goals" note="present tense, as though already true" top={20}>
+        {goals.map((g) => (
+          <div key={g.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+            <div style={{ flex: 1 }}>
+              <Grow serif size={18} value={g.text} ariaLabel="Life goal"
+                onChange={(v) => setC("lifeGoals", goals.map((x) => (x.id === g.id ? { ...x, text: v } : x)))}
+                placeholder="I am…" />
+            </div>
+            <Tap onClick={() => setC("lifeGoals", goals.filter((x) => x.id !== g.id))} aria="Remove"
+              style={{ color: C.ink16, fontSize: 13, padding: "10px 0 10px 8px", minHeight: 44 }}>×</Tap>
+          </div>
+        ))}
+        <Ghost onClick={() => setC("lifeGoals", [...goals, { id: uid(), text: "", created: keyOf(new Date()) }])}>
+          <span style={{ color: C.accent, marginRight: 8 }}>+</span>Add a life goal
+        </Ghost>
+        <Note>Write them as facts, not targets. "I make $74,000 a month" does different work than "reach $74k".</Note>
+      </Section>
+
+      <Section label="What I do regardless" note="the non-negotiable actions">
+        {actions.map((a) => (
+          <div key={a.id} style={{ padding: "14px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ flex: 1 }}>
+                <Grow serif size={18} value={a.text} ariaLabel="Daily action"
+                  onChange={(v) => setC("dailyActions", actions.map((x) => (x.id === a.id ? { ...x, text: v } : x)))}
+                  placeholder="I…" />
+              </div>
+              <Tap onClick={() => setC("dailyActions", actions.filter((x) => x.id !== a.id))} aria="Remove"
+                style={{ color: C.ink16, fontSize: 13, padding: "10px 0 10px 8px", minHeight: 44 }}>×</Tap>
+            </div>
+            <div style={{ display: "flex", gap: 18, paddingTop: 4 }}>
+              {[["everyday", "Every day"], ["weekdays", "Monday–Friday"]].map(([v, l]) => (
+                <Tap key={v} onClick={() => setC("dailyActions", actions.map((x) => (x.id === a.id ? { ...x, cadence: v } : x)))}
+                  style={{ fontFamily: SANS, fontSize: 12, padding: "8px 0", minHeight: 44,
+                    color: (a.cadence || "everyday") === v ? C.accent : C.ink16 }}>{l}</Tap>
+              ))}
+            </div>
+          </div>
+        ))}
+        <Ghost onClick={() => setC("dailyActions", [...actions, { id: uid(), text: "", cadence: "everyday" }])}>
+          <span style={{ color: C.accent, marginRight: 8 }}>+</span>Add an action
+        </Ghost>
+      </Section>
     </div>
   );
 }
