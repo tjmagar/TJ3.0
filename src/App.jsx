@@ -175,68 +175,68 @@ const AREA_GROUPS = ["Foundation", "Relationships", "Performance", "Identity"];
    unit. `goal` says which direction is good, so a delta can be coloured
    honestly rather than "up is green". The first metric is the area's headline. */
 const AREA_DEFS = [
-  { id: "body", label: "Body", group: "Foundation", day: "body", line: "Do the boring basics well.", hue: "#1F7A5A",
+  { id: "body", label: "Body", group: "Foundation", day: "body", line: "Do the boring basics well.", hue: "#3FBE86",
     metrics: [
       { id: "sleep", label: "Sleep", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
       { id: "weight", label: "Weight", unit: "lb", kind: "number", goal: "flat", step: 0.2 },
       { id: "trained", label: "Trained", kind: "toggle", goal: "up" },
       { id: "energy", label: "Energy", kind: "scale", goal: "up" },
     ] },
-  { id: "money", label: "Money", group: "Foundation", day: "money", line: "Spend like the man who earned it.", hue: "#1C6E4F",
+  { id: "money", label: "Money", group: "Foundation", day: "money", line: "Spend like the man who earned it.", hue: "#5FD39B",
     metrics: [
       { id: "net", label: "Net worth", unit: "$", kind: "currency", goal: "up", step: 100 },
       { id: "spent", label: "Spent today", unit: "$", kind: "currency", goal: "down", step: 5 },
       { id: "saved", label: "Saved", unit: "$", kind: "currency", goal: "up", step: 50 },
     ] },
-  { id: "home", label: "Home", group: "Foundation", day: "home", line: "Order where you live.", hue: "#8A5A2B",
+  { id: "home", label: "Home", group: "Foundation", day: "home", line: "Order where you live.", hue: "#D9A45B",
     metrics: [
       { id: "order", label: "In order", kind: "scale", goal: "up" },
       { id: "fixed", label: "Put right", kind: "toggle", goal: "up" },
     ] },
-  { id: "play", label: "Play & rest", group: "Foundation", day: "play", line: "Rest is not the reward for finishing.", hue: "#A34A16",
+  { id: "play", label: "Play & rest", group: "Foundation", day: "play", line: "Rest is not the reward for finishing.", hue: "#FF8C42",
     metrics: [
       { id: "rested", label: "Rested", kind: "scale", goal: "up" },
       { id: "funmin", label: "Time on something you enjoy", unit: "min", kind: "number", goal: "up", step: 15 },
     ] },
-  { id: "marriage", label: "Marriage", group: "Relationships", day: "wife", line: "Listen before solving.", hue: "#A03A5B",
+  { id: "marriage", label: "Marriage", group: "Relationships", day: "wife", line: "Listen before solving.", hue: "#F2789F",
     metrics: [
       { id: "connected", label: "Connected", kind: "scale", goal: "up" },
       { id: "together", label: "Time together", unit: "min", kind: "number", goal: "up", step: 15 },
     ] },
-  { id: "fatherhood", label: "Fatherhood", group: "Relationships", day: "daughter", line: "20 minutes fully present.", hue: "#B0521C",
+  { id: "fatherhood", label: "Fatherhood", group: "Relationships", day: "daughter", line: "20 minutes fully present.", hue: "#FFA05C",
     metrics: [
       { id: "present", label: "Fully present", unit: "min", kind: "number", goal: "up", step: 10 },
       { id: "quality", label: "Quality", kind: "scale", goal: "up" },
     ] },
-  { id: "friendship", label: "Friendship", group: "Relationships", day: "friendship", line: "The friends you keep, you call.", hue: "#7A5CA8",
+  { id: "friendship", label: "Friendship", group: "Relationships", day: "friendship", line: "The friends you keep, you call.", hue: "#B79BFF",
     metrics: [
       { id: "reached", label: "Reached out", kind: "toggle", goal: "up" },
       { id: "seen", label: "Saw someone", kind: "toggle", goal: "up" },
     ] },
-  { id: "work", label: "Work", group: "Performance", day: "work", line: "Improve judgment, not just activity.", hue: "#1D5FA8",
+  { id: "work", label: "Work", group: "Performance", day: "work", line: "Improve judgment, not just activity.", hue: "#5FA8FF",
     metrics: [
       { id: "deep", label: "Deep work", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
       { id: "judgment", label: "Judgment", kind: "scale", goal: "up" },
     ] },
-  { id: "mind", label: "Mind", group: "Performance", day: "mind", line: "Read something that changes a decision.", hue: "#2F5FA0",
+  { id: "mind", label: "Mind", group: "Performance", day: "mind", line: "Read something that changes a decision.", hue: "#7FC4FF",
     metrics: [
       { id: "read", label: "Reading", unit: "min", kind: "number", goal: "up", step: 10 },
       { id: "clarity", label: "Clarity", kind: "scale", goal: "up" },
     ] },
-  { id: "faith", label: "Faith", group: "Identity", day: "faith", line: "Prayer, scripture, or stillness.", hue: "#6B4FA8",
+  { id: "faith", label: "Faith", group: "Identity", day: "faith", line: "Prayer, scripture, or stillness.", hue: "#C6A6FF",
     metrics: [
       { id: "practice", label: "Practised", kind: "toggle", goal: "up" },
       { id: "still", label: "Stillness", unit: "min", kind: "number", goal: "up", step: 5 },
     ] },
-  { id: "character", label: "Character", group: "Identity", day: "character", line: "Keep the promises I made this morning.", hue: "#A8452A",
+  { id: "character", label: "Character", group: "Identity", day: "character", line: "Keep the promises I made this morning.", hue: "#FF9A5A",
     metrics: [
       { id: "kept", label: "Promises kept", kind: "scale", goal: "up" },
       { id: "steady", label: "Steady under pressure", kind: "scale", goal: "up" },
     ] },
 ];
 
-/* Contrast checked against the parchment ground that Areas renders on —
-   every one clears 4.5:1. Areas never renders on the dusk palette. */
+/* Contrast checked against the slate ground Areas renders on — every one
+   clears 7:1, well past AA, because a hue has to survive the glass wash too. */
 const hueOf = (id) => (AREA_DEFS.find((d) => d.id === id) || {}).hue || null;
 
 const metricsOf = (area) => (AREA_DEFS.find((d) => d.id === area.id) || {}).metrics || [];
@@ -2356,7 +2356,7 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
   const head = shown ? stat(shown) : null;
 
   return (
-    <div style={hueOf(area.id) ? { "--accent": hueOf(area.id), "--accentSoft": hueOf(area.id) + "22" } : undefined}>
+    <div style={hueOf(area.id) ? { "--accent": hueOf(area.id), "--accentSoft": hueOf(area.id) + "26" } : undefined}>
       <Tap onClick={back} style={{ fontFamily: SANS, fontSize: 13, color: C.ink45, padding: "14px 0 4px", minHeight: 44 }}>‹ Areas</Tap>
 
       <div style={{ paddingTop: 4, paddingBottom: 18 }}>
@@ -3108,41 +3108,74 @@ export default function App() {
 /* ══════════ CSS ═══════════════════════════════════════════ */
 const CSS = `
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body, #root { margin: 0; padding: 0; background: #F5F2EA; }
+html, body, #root { margin: 0; padding: 0; background: #14181B; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overscroll-behavior-y: none; }
 
 .tj-root {
-  --paper:#F5F2EA; --raise:#FBFAF5; --ink:#1D1C19;
-  --ink70:rgba(29,28,25,0.66); --ink45:rgba(29,28,25,0.45);
-  --ink28:rgba(29,28,25,0.30); --ink16:rgba(29,28,25,0.17);
-  --line:rgba(29,28,25,0.11); --lineSoft:rgba(29,28,25,0.065);
-  --accent:#4F6353; --accentSoft:rgba(79,99,83,0.16);
-  --head:rgba(245,242,234,0.92); --headFade:rgba(245,242,234,0);
-  --nav:rgba(245,242,234,0.78);
-  background: var(--paper); min-height: 100vh; position: relative;
+  --paper:#14181B; --raise:rgba(38,45,50,0.55); --ink:#EDE4D2;
+  --ink70:rgba(237,228,210,0.70); --ink45:rgba(237,228,210,0.48);
+  --ink28:rgba(237,228,210,0.32); --ink16:rgba(237,228,210,0.18);
+  --line:rgba(237,228,210,0.13); --lineSoft:rgba(237,228,210,0.075);
+  --accent:#FF7A2F; --accentSoft:rgba(255,122,47,0.16);
+  --green:#1E5C43; --slate:#2A343A;
+  --head:rgba(20,24,27,0.72); --headFade:rgba(20,24,27,0);
+  --nav:rgba(20,24,27,0.66);
+  --glass:rgba(255,255,255,0.055); --glassLine:rgba(255,255,255,0.10);
+  background: var(--paper); min-height: 100dvh; position: relative;
   transition: background-color .85s cubic-bezier(.4,0,.2,1);
 }
 .tj-root.tj-dusk {
-  --paper:#191714; --raise:#221F1A; --ink:#EFE9DD;
-  --ink70:rgba(239,233,221,0.64); --ink45:rgba(239,233,221,0.44);
-  --ink28:rgba(239,233,221,0.28); --ink16:rgba(239,233,221,0.16);
-  --line:rgba(239,233,221,0.11); --lineSoft:rgba(239,233,221,0.065);
-  --accent:#9BAE90; --accentSoft:rgba(155,174,144,0.18);
-  --head:rgba(25,23,20,0.92); --headFade:rgba(25,23,20,0);
-  --nav:rgba(25,23,20,0.78);
+  --paper:#0C0E10; --raise:rgba(32,38,43,0.55); --ink:#E7DECC;
+  --ink70:rgba(231,222,204,0.68); --ink45:rgba(231,222,204,0.46);
+  --ink28:rgba(231,222,204,0.30); --ink16:rgba(231,222,204,0.17);
+  --line:rgba(231,222,204,0.12); --lineSoft:rgba(231,222,204,0.07);
+  --accent:#F0722A; --accentSoft:rgba(240,114,42,0.15);
+  --head:rgba(12,14,16,0.74); --headFade:rgba(12,14,16,0);
+  --nav:rgba(12,14,16,0.68);
 }
-
 .tj-wash {
   position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(115% 60% at 50% -8%, var(--accentSoft), transparent 62%);
-  opacity: .5; transition: opacity .8s ease;
+  background:
+    radial-gradient(46% 34% at 12% 8%, rgba(30,92,67,0.55), transparent 70%),
+    radial-gradient(40% 30% at 88% 4%, rgba(255,122,47,0.24), transparent 72%),
+    radial-gradient(52% 40% at 72% 96%, rgba(30,92,67,0.34), transparent 74%),
+    radial-gradient(34% 26% at 6% 82%, rgba(255,122,47,0.14), transparent 76%);
+  opacity: .95;
+  transition: opacity .8s ease, background .85s cubic-bezier(.4,0,.2,1);
+}
+/* green and orange kept apart — overlapped they mix to brown, which is what
+   the first cut of the morning did */
+.tj-root.tj-dawn .tj-wash {
+  background:
+    radial-gradient(34% 22% at 92% -2%, rgba(255,134,54,0.50), transparent 66%),
+    radial-gradient(48% 36% at 14% 14%, rgba(26,122,84,0.58), transparent 70%),
+    radial-gradient(54% 40% at 26% 96%, rgba(20,90,64,0.58), transparent 72%),
+    radial-gradient(30% 20% at 96% 78%, rgba(255,134,54,0.16), transparent 72%);
+}
+.tj-root.tj-dusk .tj-wash {
+  background:
+    radial-gradient(48% 34% at 16% 6%, rgba(22,64,48,0.44), transparent 72%),
+    radial-gradient(38% 28% at 86% 92%, rgba(240,114,42,0.15), transparent 74%);
+  opacity: .8;
+}
+
+/* one glass recipe, used by every raised surface */
+.tj-glass {
+  background: var(--glass);
+  border: 1px solid var(--glassLine);
+  border-radius: 14px;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 12px 34px rgba(0,0,0,0.30);
+  transition: border-color .35s ease, background .6s ease, transform .35s cubic-bezier(.2,.8,.2,1);
 }
 
 .tj-head {
   position: fixed; top: 0; left: 0; right: 0; z-index: 40;
   padding-top: env(safe-area-inset-top);
   background: linear-gradient(to bottom, var(--head) 58%, var(--headFade));
-  backdrop-filter: blur(18px) saturate(115%); -webkit-backdrop-filter: blur(18px) saturate(115%);
+  backdrop-filter: blur(26px) saturate(150%); -webkit-backdrop-filter: blur(26px) saturate(150%);
+  border-bottom: 1px solid var(--glassLine);
   transition: opacity .4s ease, background .85s cubic-bezier(.4,0,.2,1);
 }
 .tj-head-inner { max-width: 640px; margin: 0 auto; padding: 6px 22px 14px; display: flex; align-items: center; justify-content: space-between; }
@@ -3154,8 +3187,8 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   padding-bottom: env(safe-area-inset-bottom);
   background: var(--nav);
-  backdrop-filter: blur(24px) saturate(140%); -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border-top: 1px solid var(--lineSoft);
+  backdrop-filter: blur(28px) saturate(155%); -webkit-backdrop-filter: blur(28px) saturate(155%);
+  border-top: 1px solid var(--glassLine);
   transition: opacity .4s ease, background .85s cubic-bezier(.4,0,.2,1);
 }
 /* Five items fit an iPad without scrolling, so the bar spreads them instead of
@@ -3200,8 +3233,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 
 /* the dense half: cards that group data without shouting */
 .tj-card {
-  background: var(--raise); border: 1px solid var(--lineSoft); border-radius: 6px;
-  padding: 18px 20px; transition: background .6s ease, border-color .6s ease;
+  background: var(--glass); border: 1px solid var(--glassLine); border-radius: 14px;
+  padding: 20px 22px;
+  backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 12px 32px rgba(0,0,0,0.28);
+  transition: border-color .35s ease;
 }
 .tj-kpi { display: flex; flex-wrap: wrap; gap: 0 28px; }
 .tj-range { display: flex; gap: 16px; }
@@ -3213,8 +3249,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-vitem {
   position: relative; display: block; overflow: hidden; cursor: pointer;
   aspect-ratio: 4 / 3; border-radius: 8px;
-  background-color: var(--raise); background-size: cover; background-position: center;
-  border: 1px solid var(--line);
+  background-color: var(--glass); background-size: cover; background-position: center;
+  border: 1px solid var(--glassLine);
+  backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 26px rgba(0,0,0,0.30);
   transition: transform .35s cubic-bezier(.2,.8,.2,1), border-color .3s ease;
 }
 .tj-vitem:active { transform: scale(.985); }
@@ -3242,15 +3280,20 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-vitem.tj-has .tj-vnote { color: rgba(255,246,236,0.74); }
 
 .tj-scripture {
-  margin-top: 24px; padding: 20px 22px; border-radius: 3px;
-  background: var(--raise); border-left: 2px solid var(--accent);
-  transition: background .6s ease;
+  margin-top: 14px; padding: 20px 22px;
+  background: var(--glass); border: 1px solid var(--glassLine);
+  border-left: 2px solid var(--accent); border-radius: 14px;
+  backdrop-filter: blur(20px) saturate(140%); -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 28px rgba(0,0,0,0.26);
 }
 
 .tj-prompt {
-  background: var(--raise); border: 1px solid var(--line); border-radius: 6px;
-  transition: border-color .3s ease, background .6s ease;
+  background: var(--glass); border: 1px solid var(--glassLine); border-radius: 12px;
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset;
+  transition: border-color .3s ease, transform .3s cubic-bezier(.2,.8,.2,1);
 }
+.tj-prompt:active { transform: scale(.99); }
 @media (hover: hover) { .tj-prompt:hover { border-color: var(--accent); } }
 
 .tj-tap { background: none; border: none; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; transition: opacity .2s ease, transform .2s ease; }
@@ -3289,8 +3332,10 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 @keyframes tjFade { from { opacity: 0 } to { opacity: 1 } }
 .tj-sheet {
-  width: 100%; max-width: 640px; margin: 0 auto; background: var(--raise);
-  border-top: 1px solid var(--line); border-radius: 20px 20px 0 0;
+  width: 100%; max-width: 640px; margin: 0 auto;
+  background: rgba(28,34,38,0.72); border: 1px solid var(--glassLine);
+  border-bottom: none; border-radius: 22px 22px 0 0;
+  backdrop-filter: blur(30px) saturate(150%); -webkit-backdrop-filter: blur(30px) saturate(150%);
   padding: 24px 22px calc(20px + env(safe-area-inset-bottom));
   max-height: 84vh; display: flex; flex-direction: column;
   animation: tjUp .42s cubic-bezier(.2,.8,.2,1);
@@ -3302,21 +3347,21 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
   bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 70;
-  background: var(--raise); color: var(--ink); font-family: ${SANS}; font-size: 13px;
-  padding: 11px 20px; border-radius: 40px; border: 1px solid var(--line);
-  box-shadow: 0 8px 30px rgba(20,18,15,0.10); animation: tjIn .35s cubic-bezier(.2,.8,.2,1);
+  background: rgba(30,36,40,0.78); color: var(--ink); font-family: ${SANS}; font-size: 13px;
+  padding: 12px 22px; border-radius: 40px; border: 1px solid var(--glassLine);
+  backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: 0 12px 34px rgba(0,0,0,0.40); animation: tjIn .35s cubic-bezier(.2,.8,.2,1);
 }
 
 .tj-root.tj-dawn {
-  --paper:#FBEEE2; --raise:#FFF8F1; --ink:#231710;
-  --ink70:rgba(35,23,16,0.70); --ink45:rgba(35,23,16,0.48);
-  --ink28:rgba(35,23,16,0.32); --ink16:rgba(35,23,16,0.18);
-  --line:rgba(35,23,16,0.11); --lineSoft:rgba(35,23,16,0.06);
-  --accent:#A8452A; --accentSoft:rgba(168,69,42,0.13);
-  --head:rgba(251,238,226,0.93); --headFade:rgba(251,238,226,0);
-  --nav:rgba(251,238,226,0.84);
+  --paper:#0F1614; --raise:rgba(34,52,45,0.52); --ink:#F2E9D7;
+  --ink70:rgba(242,233,215,0.72); --ink45:rgba(242,233,215,0.50);
+  --ink28:rgba(242,233,215,0.33); --ink16:rgba(242,233,215,0.19);
+  --line:rgba(242,233,215,0.13); --lineSoft:rgba(242,233,215,0.075);
+  --accent:#FF8636; --accentSoft:rgba(255,134,54,0.17);
+  --head:rgba(15,22,20,0.72); --headFade:rgba(15,22,20,0);
+  --nav:rgba(15,22,20,0.66);
 }
-/* the morning gets actual sunrise behind it rather than a flat tint */
 .tj-root.tj-dawn .tj-wash {
   opacity: 1;
   background:
@@ -3326,10 +3371,18 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 
 .tj-quote {
-  margin-top: 26px; padding: 22px 22px 20px; border-radius: 3px;
-  background: var(--accentSoft); border-left: 2px solid var(--accent);
+  position: relative; margin-top: 26px; padding: 24px 24px 22px;
+  background: linear-gradient(140deg, var(--accentSoft), rgba(255,255,255,0.03));
+  border: 1px solid var(--glassLine); border-radius: 14px;
+  backdrop-filter: blur(22px) saturate(150%); -webkit-backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 14px 38px rgba(0,0,0,0.34);
   animation: tjIn .5s cubic-bezier(.2,.8,.2,1);
-  transition: background .6s ease;
+  overflow: hidden;
+}
+/* a lit edge along the top, the way real glass catches light */
+.tj-quote::before {
+  content: ""; position: absolute; left: 18%; right: 18%; top: 0; height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent); opacity: .55;
 }
 
 .tj-inkbar {
@@ -3337,10 +3390,12 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   padding-bottom: 10px; border-bottom: 1px solid var(--lineSoft);
 }
 .tj-inkwrap {
-  margin-top: 10px; border: 1px solid var(--line); border-radius: 4px;
-  background: var(--raise); overflow: hidden; position: relative;
-  transition: background .6s ease;
+  margin-top: 10px; border: 1px solid var(--glassLine); border-radius: 14px;
+  background: rgba(240,235,222,0.94); overflow: hidden; position: relative;
+  box-shadow: 0 12px 34px rgba(0,0,0,0.32);
 }
+/* ink is dark on a light sheet whatever the app's ground is doing */
+.tj-inkwrap .tj-canvas { color: #1A1714; border-color: rgba(26,23,20,0.13); }
 .tj-canvas {
   color: var(--ink); border-color: var(--line);
   display: block; touch-action: none; cursor: crosshair;
@@ -3366,6 +3421,13 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 @media (hover: hover) {
   .tj-tap:hover:not(:disabled) { opacity: .72; }
   .tj-navitem:hover { color: var(--ink70) !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .tj-glass, .tj-card, .tj-prompt, .tj-scripture, .tj-quote, .tj-sheet, .tj-toast,
+  .tj-head, .tj-nav, .tj-vitem {
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    background: #1D2328 !important;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *, .tj-view, .tj-reveal, .tj-sheet { animation: none !important; transition-duration: .01ms !important; }
@@ -3625,7 +3687,7 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
       const selected = sel && sel.ids.includes(s.id);
       const dx = selected ? sel.dx : 0, dy = selected ? sel.dy : 0;
       ctx.globalAlpha = spec.alpha;
-      ctx.strokeStyle = s.tool === "marker" ? "rgba(199,154,94,1)" : ink;
+      ctx.strokeStyle = s.tool === "marker" ? (getComputedStyle(cvs).getPropertyValue("--accent").trim() || "#FF7A2F") : ink;
       ctx.lineCap = s.tool === "marker" ? "butt" : "round";
       ctx.lineJoin = "round";
       if (s.pts.length === 1) {
