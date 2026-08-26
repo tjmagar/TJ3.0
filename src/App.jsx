@@ -22,7 +22,10 @@ const C = {
   accentSoft: "var(--accentSoft)",
 };
 
-const SERIF = "'Newsreader', ui-serif, Georgia, 'Iowan Old Style', serif";
+/* 'Newsreader Variable' is the self-hosted variable face bundled with the app;
+   'Newsreader' is the old Google-hosted name, kept so a cached install of the
+   previous build still resolves. Georgia carries it if neither loads. */
+const SERIF = "'Newsreader Variable', 'Newsreader', ui-serif, Georgia, 'Iowan Old Style', serif";
 const SANS = "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif";
 
 /* ── dates ────────────────────────────────────────────────── */
@@ -211,6 +214,7 @@ function writeIndex(dateKey, day, journal) {
   return next;
 }
 
+/* The recent window, read first so the app opens without waiting on years. */
 async function readIndex(months = 4, endKey) {
   const end = endKey || keyOf(new Date());
   const out = [];
@@ -224,11 +228,29 @@ async function readIndex(months = 4, endKey) {
   return out.sort((a, b) => (a.d < b.d ? -1 : 1));
 }
 
+/* And then the rest of it. Talk says "Reads everything you've written here"
+   and every Mark reports "from N entries" — with a four-month cap those went
+   quietly false after the first winter, and provenance honesty is the point of
+   this app. Loaded in the background so it costs nothing at startup.
+   A shard that will not parse is skipped rather than sinking the whole
+   history; the counts stay honest because they report rows actually read. */
+async function readAllIndex() {
+  const keys = (await S.list("tj:idx:")).sort();
+  const out = [];
+  for (const k of keys) {
+    try {
+      const rows = await S.get(k);
+      if (rows) out.push(...rows);
+    } catch (e) { /* damaged shard — keep the years that still read */ }
+  }
+  return out.sort((a, b) => (a.d < b.d ? -1 : 1));
+}
+
 /* ── model access ─────────────────────────────────────────── */
 /* The key lives on this device and goes nowhere but api.anthropic.com. Direct
    browser calls need the dangerous-direct-browser-access header; "bring your
    own key" is the acknowledged use for it, and it is this app's whole posture. */
-const MODEL = "claude-sonnet-5";
+const MODEL = "claude-opus-5";
 
 const VOICE = `You are the reflective layer inside TJ's private journal. TJ is 36, a husband to Sara, father to Margo, works in sales, practices his faith, and is trying to become steadier.
 
@@ -1399,8 +1421,7 @@ function Synthesis({ scope, record, setRecord, index, date, ai, lib, setLib }) {
 }
 
 /* ══════════ JUDGMENT ══════════════════════════════════════ */
-function Judgment({ lib, setLib, index, ai, date }) {
-  const [tab, setTab] = useState("decisions");
+function Judgment({ lib, setLib, date }) {
   const decFields = [
     { key: "title", q: "The decision", ph: "Say it in one line." },
     { key: "choice", q: "Current best choice" },
@@ -1423,133 +1444,44 @@ function Judgment({ lib, setLib, index, ai, date }) {
     return "Bad decision, bad outcome";
   };
 
-  /* Deals was a sales-job surface, not a TJ 3.0 one, and is gone. Any records
-     already written stay in storage and in the JSON export — removing a tab is
-     not a reason to destroy what was written into it. */
-  const callFields = [
-    { key: "title", q: "The call" },
-    { key: "believed", q: "What did I think was happening?" },
-    { key: "actual", q: "What was actually happening?" },
-    { key: "question", q: "What question would have exposed that earlier?" },
-    { key: "over", q: "Where did I over-explain?" },
-    { key: "dots", q: "Where should I have let the buyer connect the dots?" },
-    { key: "lesson", q: "The lesson, in one line" },
-  ];
-
-  const [langDraft, setLangDraft] = useState({ type: "Reframe", text: "" });
-  const LANG = ["Reframe", "Question", "Cold email", "Objection", "Negotiation", "Close", "Buyer psychology"];
-  const [busy, setBusy] = useState(false);
-  const [read, setRead] = useState(null);
-
-  const readJudgment = async () => {
-    setBusy(true);
-    try {
-      const material = lib.calls.slice(0, 25)
-        .map((c) => Object.entries(c).filter(([k, v]) => typeof v === "string" && v && !["id", "created"].includes(k)).map(([k, v]) => `${k}: ${v}`).join(" | "))
-        .join("\n");
-      if (material.length < 200) throw new Error("Log a few more calls first.");
-      const out = await askModel({
-        messages: [{ role: "user", content: `My call reviews:\n\n${material}\n\nWhat recurring judgment error shows up across these? Name one or two, in under 110 words, citing the specific reviews. If I keep making the same misread, say exactly what the misread is. No encouragement.` }],
-        maxTokens: 350,
-      });
-      setRead(out);
-    } catch (e) { setRead(String(e.message || e)); }
-    setBusy(false);
-  };
+  /* Deals, Calls and Language were all sales-job surfaces rather than TJ 3.0
+     ones, and they are gone. Judgment is the decision journal now: how you
+     think when it counts, not how you sell. Every record already written to
+     any of the three stays in storage and in the JSON export — removing a
+     surface is not a reason to destroy what was written into it. */
 
   return (
     <div>
       <Title sub="Not a CRM. A record of how you think when it counts.">Judgment</Title>
-      <Segment options={[{ id: "decisions", label: "Decisions" }, { id: "calls", label: "Calls" }, { id: "language", label: "Language" }]} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
 
-      <div key={tab} className="tj-reveal">
-        {tab === "decisions" && (
-          <Section label="Decision journal" note="separate the call from the result" top={24}>
-            <div style={{ paddingTop: 6 }}>
-              <RecordList
-                records={lib.decisions} titleKey="title" fields={decFields}
-                empty="A decision written down before the outcome is the only honest record you'll get."
-                addLabel="Log a decision"
-                meta={(d) => verdictOf(d) ? (d.reasoning === "Sound" ? "Sound call" : "Flawed call") : d.review && d.review <= date ? "Review due" : d.review ? midDate(d.review) : ""}
-                onAdd={() => { const id = uid(); setLib("decisions", [{ id, created: date, title: "" }, ...lib.decisions]); return id; }}
-                onChange={(id, k, v) => setLib("decisions", lib.decisions.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-                onDelete={(id) => setLib("decisions", lib.decisions.filter((x) => x.id !== id))}
-              />
-            </div>
-            {lib.decisions.some((d) => verdictOf(d)) && (
-              <div style={{ paddingTop: 26 }}>
-                <Mark kind="counted" />
-                <div style={{ paddingTop: 12 }}>
-                  {lib.decisions.filter((d) => verdictOf(d)).map((d) => (
-                    <div key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: "11px 0", borderTop: `1px solid ${C.lineSoft}` }}>
-                      <span style={{ fontFamily: SANS, fontSize: 13.5, color: C.ink70, flex: 1 }}>{d.title}</span>
-                      <span style={{ fontFamily: SANS, fontSize: 11.5, color: d.reasoning === "Sound" ? C.accent : C.ink28, textAlign: "right" }}>{verdictOf(d)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </Section>
-        )}
-
-        {tab === "calls" && (
-          <>
-            <Section label="Call review" note="believed vs actual" top={24}>
-              <div style={{ paddingTop: 6 }}>
-                <RecordList records={lib.calls} titleKey="title" fields={callFields}
-                  empty="The gap between what you believed and what was true is where the skill is."
-                  addLabel="Review a call"
-                  onAdd={() => { const id = uid(); setLib("calls", [{ id, created: date, title: "" }, ...lib.calls]); return id; }}
-                  onChange={(id, k, v) => setLib("calls", lib.calls.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-                  onDelete={(id) => setLib("calls", lib.calls.filter((x) => x.id !== id))} />
-              </div>
-            </Section>
-            <Section label="Across your reviews" note={`${lib.calls.length} logged`}>
-              {read ? (
-                <div className="tj-reveal" style={{ paddingTop: 18 }}>
-                  <Mark kind="generated" detail={`from ${lib.calls.length} reviews`} />
-                  <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{read}</div>
-                  <Tap onClick={() => setRead(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "16px 0 0" }}>Dismiss</Tap>
-                </div>
-              ) : busy ? <Working /> : (
-                <Ghost onClick={readJudgment} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>What do I keep getting wrong?</Ghost>
-              )}
-            </Section>
-          </>
-        )}
-
-        {tab === "language" && (
-          <Section label="Language" note={lib.language.length ? `${lib.language.length} saved` : ""} top={24}>
-            <div style={{ padding: "18px 0 10px" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 16px", marginBottom: 12 }}>
-                {LANG.map((t) => (
-                  <Tap key={t} onClick={() => setLangDraft((d) => ({ ...d, type: t }))}
-                    style={{ fontFamily: SANS, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase", color: langDraft.type === t ? C.accent : C.ink16, padding: "6px 0", transition: "color .3s" }}>{t}</Tap>
-                ))}
-              </div>
-              <Grow serif size={18} value={langDraft.text} onChange={(v) => setLangDraft((d) => ({ ...d, text: v }))} placeholder="Write the line exactly as you'd say it." ariaLabel="New line" />
-              {langDraft.text.trim() && (
-                <Tap onClick={() => { setLib("language", [{ id: uid(), created: date, ...langDraft }, ...lib.language]); setLangDraft({ type: langDraft.type, text: "" }); }}
-                  style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "14px 0 4px" }}>Save it</Tap>
-              )}
-            </div>
-            <Rule />
-            {lib.language.length === 0 && <Empty>The lines that worked are easy to lose. Keep them here.</Empty>}
-            {LANG.filter((t) => lib.language.some((l) => l.type === t)).map((t) => (
-              <div key={t} style={{ paddingTop: 22 }}>
-                <Eyebrow style={{ color: C.ink16 }}>{t}</Eyebrow>
-                {lib.language.filter((l) => l.type === t).map((l) => (
-                  <div key={l.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
-                    <span style={{ color: C.accent, fontSize: 14, lineHeight: "26px", opacity: 0.6 }}>—</span>
-                    <div style={{ flex: 1, fontFamily: SERIF, fontSize: 18, fontWeight: 300, color: C.ink, lineHeight: 1.5 }}>{l.text}</div>
-                    <Tap onClick={() => setLib("language", lib.language.filter((x) => x.id !== l.id))} style={{ color: C.ink16, fontSize: 13, padding: "4px 0 4px 8px" }} aria="Remove">×</Tap>
+      <div className="tj-reveal">
+        <Section label="Decision journal" note="separate the call from the result" top={24}>
+          <div style={{ paddingTop: 6 }}>
+            <RecordList
+              records={lib.decisions} titleKey="title" fields={decFields}
+              empty="A decision written down before the outcome is the only honest record you'll get."
+              addLabel="Log a decision"
+              meta={(d) => verdictOf(d) ? (d.reasoning === "Sound" ? "Sound call" : "Flawed call") : d.review && d.review <= date ? "Review due" : d.review ? midDate(d.review) : ""}
+              onAdd={() => { const id = uid(); setLib("decisions", [{ id, created: date, title: "" }, ...lib.decisions]); return id; }}
+              onChange={(id, k, v) => setLib("decisions", lib.decisions.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
+              onDelete={(id) => setLib("decisions", lib.decisions.filter((x) => x.id !== id))}
+            />
+          </div>
+          {lib.decisions.some((d) => verdictOf(d)) && (
+            <div style={{ paddingTop: 26 }}>
+              <Mark kind="counted" />
+              <div style={{ paddingTop: 12 }}>
+                {lib.decisions.filter((d) => verdictOf(d)).map((d) => (
+                  <div key={d.id} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: "11px 0", borderTop: `1px solid ${C.lineSoft}` }}>
+                    <span style={{ fontFamily: SANS, fontSize: 13.5, color: C.ink70, flex: 1 }}>{d.title}</span>
+                    <span style={{ fontFamily: SANS, fontSize: 11.5, color: d.reasoning === "Sound" ? C.accent : C.ink28, textAlign: "right" }}>{verdictOf(d)}</span>
                   </div>
                 ))}
               </div>
-            ))}
-          </Section>
-        )}
+            </div>
+          )}
+        </Section>
       </div>
     </div>
   );
@@ -2147,7 +2079,17 @@ export default function App() {
         setReady(true);
       } catch (e) {
         setStorageError(true);
+        return;
       }
+      /* then the whole history, behind the first paint. Merged rather than
+         swapped in, so a day written while this was loading is not clobbered. */
+      try {
+        const all = await readAllIndex();
+        setIndex((cur) => {
+          const fresh = new Set(cur.map((r) => r.d));
+          return [...all.filter((r) => !fresh.has(r.d)), ...cur].sort((a, b) => (a.d < b.d ? -1 : 1));
+        });
+      } catch (e) { /* the recent window is already loaded and usable */ }
     })();
   }, []);
 
@@ -2330,7 +2272,7 @@ export default function App() {
         setWeek(w && w.id === wkKey ? w : { id: wkKey });
         const m = await S.get("tj:month:" + moKey);
         setMonth(m && m.id === moKey ? m : { id: moKey });
-        setIndex(await readIndex(4));
+        setIndex(await readAllIndex()); // a restore brings back years, not a window
         const k = await S.get("tj:ink:" + date);
         setInkState(k && k.date === date ? k : { date });
         const jk = await S.list("tj:journal:");
@@ -2386,7 +2328,7 @@ export default function App() {
     faith: <Faith day={day} setD={setD} index={index} ai={aiOn} lib={lib} setLib={setLib} />,
     journal: <Journal journal={journal} setJournal={setJournal} date={date} setDate={setDate} dates={journalDates} focus={focus} setFocus={setFocus} ink={ink} setInk={setInk} index={index} inkDates={inkDates} core={core} />,
     patterns: <Patterns lib={lib} setLib={setLib} index={index} core={core} date={date} ai={aiOn} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
-    judgment: <Judgment lib={lib} setLib={setLib} index={index} ai={aiOn} date={date} />,
+    judgment: <Judgment lib={lib} setLib={setLib} date={date} />,
     library: <Library lib={lib} setLib={setLib} index={index} ai={aiOn} date={date} />,
     becoming: <Becoming core={core} setC={setC} index={index} ai={aiOn} date={date} />,
     talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} />,
@@ -2442,8 +2384,6 @@ export default function App() {
 
 /* ══════════ CSS ═══════════════════════════════════════════ */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,200;0,6..72,300;0,6..72,400;1,6..72,300&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body, #root { margin: 0; padding: 0; background: #F5F2EA; }
 body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; overscroll-behavior-y: none; }

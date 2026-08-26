@@ -1,5 +1,12 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+/* The serif face ships with the app rather than loading from Google Fonts.
+   Reading works offline, which it did not when the display face lived on a
+   third party, and a private journal no longer announces every launch to
+   another server. Subsets are unicode-ranged, so English text pulls only the
+   latin files. */
+import "@fontsource-variable/newsreader/opsz.css";
+import "@fontsource-variable/newsreader/opsz-italic.css";
 import { installStorage } from "./storage.js";
 import App from "./App.jsx";
 

@@ -52,11 +52,14 @@ for (const label of want) {
   ok(`${label} renders`, txt.trim().length > 40);
 }
 
-// 3. Judgment no longer offers Deals; Decisions/Calls/Language remain
+// 3. Judgment is the decision journal — no sales surfaces left
 await page.click('.tj-navitem:text-is("Judgment")');
 await page.waitForTimeout(320);
-const jTabs = await page.$$eval(".tj-seg .tj-tap", (n) => n.map((x) => x.textContent.trim()));
-ok(`Judgment tabs = ${jTabs.join(", ")}`, !jTabs.includes("Deals") && ["Decisions", "Calls", "Language"].every((t) => jTabs.includes(t)));
+const judgment = (await page.textContent(".tj-main")) || "";
+ok("Judgment offers the decision journal", /Decision journal/.test(judgment) && /Log a decision/.test(judgment));
+const sales = ["Deals", "Deal reflection", "Calls", "Call review", "Language", "Buyer psychology", "Cold email"]
+  .filter((t) => judgment.includes(t));
+ok(`no sales surfaces in Judgment${sales.length ? " — found: " + sales.join(", ") : ""}`, sales.length === 0);
 
 // 4. themes: dawn on morning Today, dusk on Talk
 await page.click('.tj-navitem:text-is("Today")');
@@ -144,7 +147,24 @@ const restored = (await p2.textContent(".tj-main")) || "";
 ok("fresh profile imports the backup with entries intact",
   restored.includes("A line I would be upset to lose in a restore."));
 
-// 10. no blocking dialogs anywhere in that whole run, including across reloads
+// 10. the serif face is actually served by the app, not silently falling back
+await page.goto(URL, { waitUntil: "networkidle" });
+await page.waitForSelector(".tj-nav", { timeout: 10000 });
+const fontOk = await page.evaluate(async () => {
+  await document.fonts.ready;
+  return Array.from(document.fonts).some(
+    (f) => f.family.includes("Newsreader") && f.status === "loaded"
+  );
+});
+ok("self-hosted Newsreader loads (design does not fall back to Georgia)", fontOk);
+const thirdParty = await page.evaluate(() =>
+  performance.getEntriesByType("resource")
+    .map((r) => new URL(r.name).host)
+    .filter((h) => h && h !== location.host)
+);
+ok(`no third-party requests${thirdParty.length ? " — " + [...new Set(thirdParty)].join(", ") : ""}`, thirdParty.length === 0);
+
+// 11. no blocking dialogs anywhere in that whole run, including across reloads
 ok(`no blocking dialogs${dialogs.length ? " — saw: " + dialogs.join(" | ") : ""}`, dialogs.length === 0);
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
