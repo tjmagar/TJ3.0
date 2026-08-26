@@ -62,14 +62,27 @@ const mondayOf = (k) => addDays(k, -((parseKey(k).getDay() + 6) % 7));
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 
 /* ── storage ──────────────────────────────────────────────── */
-const S = {
+/* get() returns null for a key that was never written, and THROWS for a store
+   that could not be read. Those two used to be the same answer, which meant a
+   transient IndexedDB failure rendered an empty day and the autosave below then
+   wrote that empty day over a real entry. Never again: a record that failed to
+   load is never saved over. */
+export const S = {
   async get(key) {
+    let r;
     try {
-      const r = await window.storage.get(key);
-      if (!r || r.value == null) return null;
-      return typeof r.value === "string" ? JSON.parse(r.value) : r.value;
+      r = await window.storage.get(key);
     } catch (e) {
-      return null;
+      if (e && e.missingKey) return null; // no record — the original contract
+      throw e; // a real failure must not be mistaken for an empty record
+    }
+    if (!r || r.value == null) return null;
+    if (typeof r.value !== "string") return r.value;
+    try {
+      return JSON.parse(r.value);
+    } catch (e) {
+      // a corrupt record is damage, not absence — refuse rather than overwrite
+      throw new Error("Unreadable record at " + key);
     }
   },
   async set(key, val) {
@@ -89,6 +102,13 @@ const S = {
     }
   },
 };
+
+/* Every debounced writer registers a flush here. iOS can freeze or reclaim a
+   standalone PWA at any moment, so anything still inside a debounce window
+   would otherwise die with the page. Flushing writes already-committed state —
+   it never touches the canvas, so it cannot interrupt a stroke in progress. */
+const flushers = new Set();
+const flushAllWrites = () => { for (const f of Array.from(flushers)) f(); };
 
 /* ── themes: a counted layer, no model involved ───────────── */
 const THEMES = [
@@ -173,13 +193,22 @@ function dayToIndexRows(dateKey, day, journal) {
   return rows;
 }
 
-async function writeIndex(dateKey, day, journal) {
-  const mk = monthKey(dateKey);
-  const key = "tj:idx:" + mk;
-  const cur = (await S.get(key)) || [];
-  const rest = cur.filter((r) => r.d !== dateKey);
-  const rows = dayToIndexRows(dateKey, day, journal);
-  await S.set(key, [...rest, ...rows].sort((a, b) => (a.d < b.d ? -1 : 1)));
+/* One shard is read-modify-written, so two overlapping writes to the same month
+   would interleave and drop rows. Chain them per shard instead. */
+const idxChains = new Map();
+
+function writeIndex(dateKey, day, journal) {
+  const key = "tj:idx:" + monthKey(dateKey);
+  const prior = idxChains.get(key) || Promise.resolve();
+  const next = prior.then(async () => {
+    const cur = (await S.get(key)) || []; // a real read failure throws, aborting the write
+    const rest = cur.filter((r) => r.d !== dateKey);
+    const rows = dayToIndexRows(dateKey, day, journal);
+    await S.set(key, [...rest, ...rows].sort((a, b) => (a.d < b.d ? -1 : 1)));
+  });
+  // keep the chain alive after a failure, but don't leave an unhandled rejection
+  idxChains.set(key, next.catch(() => {}));
+  return next;
 }
 
 async function readIndex(months = 4, endKey) {
@@ -196,6 +225,11 @@ async function readIndex(months = 4, endKey) {
 }
 
 /* ── model access ─────────────────────────────────────────── */
+/* The key lives on this device and goes nowhere but api.anthropic.com. Direct
+   browser calls need the dangerous-direct-browser-access header; "bring your
+   own key" is the acknowledged use for it, and it is this app's whole posture. */
+const MODEL = "claude-sonnet-5";
+
 const VOICE = `You are the reflective layer inside TJ's private journal. TJ is 36, a husband to Sara, father to Margo, works in sales, practices his faith, and is trying to become steadier.
 
 Rules you do not break:
@@ -208,17 +242,39 @@ Rules you do not break:
 - You are not his friend and not his fan. You are the part of him that keeps the receipts.`;
 
 async function askModel({ system, messages, maxTokens = 1200 }) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1000,
-      system: system || VOICE,
-      messages,
-    }),
-  });
-  if (!res.ok) throw new Error("Model request failed (" + res.status + ")");
+  let key;
+  try {
+    key = await S.get("tj:apikey");
+  } catch (e) {
+    throw new Error("Couldn't read the stored key. Try again.");
+  }
+  if (!key) throw new Error("No API key set. Add one in Settings → Data.");
+  let res;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system: system || VOICE,
+        messages,
+      }),
+    });
+  } catch (e) {
+    throw new Error("No connection. Writing and reading still work offline.");
+  }
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) throw new Error("That key was refused. Check it in Settings → Data.");
+    if (res.status === 429) throw new Error("Too many requests just now. Try again in a minute.");
+    if (res.status >= 500) throw new Error("The model is unavailable right now. Try again shortly.");
+    throw new Error("Model request failed (" + res.status + ")");
+  }
   const data = await res.json();
   return (data.content || [])
     .filter((b) => b.type === "text")
@@ -381,7 +437,23 @@ const emptyCore = () => ({
   retired: [],
 });
 
+/* `deals` stays in the shape even though the Deals tab is gone: the records are
+   still the owner's, still exported, and dropping them would lose written work. */
 const emptyLib = () => ({ insights: [], blindspots: [], experiments: [], books: [], kb: [], decisions: [], deals: [], calls: [], language: [], recs: [], affSuggestions: [] });
+
+/* A persisted `order` from an older build used to win wholesale, so any section
+   added later was invisible in the nav forever. Reconcile against SECTIONS. */
+const mergeCore = (saved) => {
+  const base = emptyCore();
+  if (!saved) return base;
+  const out = { ...base, ...saved, customPrompts: { ...base.customPrompts, ...(saved.customPrompts || {}) } };
+  const known = SECTIONS.map((s) => s.id);
+  const kept = (Array.isArray(saved.order) ? saved.order : []).filter((id) => known.includes(id));
+  out.order = [...kept, ...known.filter((id) => !kept.includes(id))];
+  out.hidden = (Array.isArray(saved.hidden) ? saved.hidden : [])
+    .filter((id) => known.includes(id) && !(SECTIONS.find((s) => s.id === id) || {}).fixed);
+  return out;
+};
 
 /* ── deterministic prompt rotation ────────────────────────── */
 const hashStr = (s) => {
@@ -1351,16 +1423,9 @@ function Judgment({ lib, setLib, index, ai, date }) {
     return "Bad decision, bad outcome";
   };
 
-  const dealFields = [
-    { key: "title", q: "The deal" },
-    { key: "stated", q: "What do they say the problem is?", ph: "Their words." },
-    { key: "real", q: "What do I think the real problem is?" },
-    { key: "evidence", q: "What evidence supports that?", ph: "Not vibes. Evidence." },
-    { key: "wins", q: "Who wins if this is solved?" },
-    { key: "kill", q: "Who can kill this?" },
-    { key: "missed", q: "What did I miss?" },
-    { key: "next", q: "What is the next move?", ph: "One move." },
-  ];
+  /* Deals was a sales-job surface, not a TJ 3.0 one, and is gone. Any records
+     already written stay in storage and in the JSON export — removing a tab is
+     not a reason to destroy what was written into it. */
   const callFields = [
     { key: "title", q: "The call" },
     { key: "believed", q: "What did I think was happening?" },
@@ -1375,17 +1440,16 @@ function Judgment({ lib, setLib, index, ai, date }) {
   const LANG = ["Reframe", "Question", "Cold email", "Objection", "Negotiation", "Close", "Buyer psychology"];
   const [busy, setBusy] = useState(false);
   const [read, setRead] = useState(null);
-  const salesRows = useMemo(() => index.filter((r) => r.sec === "sales"), [index]);
 
   const readJudgment = async () => {
     setBusy(true);
     try {
-      const material = [...lib.calls, ...lib.deals].slice(0, 25)
+      const material = lib.calls.slice(0, 25)
         .map((c) => Object.entries(c).filter(([k, v]) => typeof v === "string" && v && !["id", "created"].includes(k)).map(([k, v]) => `${k}: ${v}`).join(" | "))
         .join("\n");
-      if (material.length < 200) throw new Error("Log a few more calls or deals first.");
+      if (material.length < 200) throw new Error("Log a few more calls first.");
       const out = await askModel({
-        messages: [{ role: "user", content: `My deal and call reviews:\n\n${material}\n\nWhat recurring judgment error shows up across these? Name one or two, in under 110 words, citing the specific reviews. If I keep making the same misread, say exactly what the misread is. No encouragement.` }],
+        messages: [{ role: "user", content: `My call reviews:\n\n${material}\n\nWhat recurring judgment error shows up across these? Name one or two, in under 110 words, citing the specific reviews. If I keep making the same misread, say exactly what the misread is. No encouragement.` }],
         maxTokens: 350,
       });
       setRead(out);
@@ -1396,7 +1460,7 @@ function Judgment({ lib, setLib, index, ai, date }) {
   return (
     <div>
       <Title sub="Not a CRM. A record of how you think when it counts.">Judgment</Title>
-      <Segment options={[{ id: "decisions", label: "Decisions" }, { id: "deals", label: "Deals" }, { id: "calls", label: "Calls" }, { id: "language", label: "Language" }]} value={tab} onChange={setTab} />
+      <Segment options={[{ id: "decisions", label: "Decisions" }, { id: "calls", label: "Calls" }, { id: "language", label: "Language" }]} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
 
       <div key={tab} className="tj-reveal">
@@ -1429,19 +1493,6 @@ function Judgment({ lib, setLib, index, ai, date }) {
           </Section>
         )}
 
-        {tab === "deals" && (
-          <Section label="Deal reflection" top={24}>
-            <div style={{ paddingTop: 6 }}>
-              <RecordList records={lib.deals} titleKey="title" fields={dealFields}
-                empty="Pick the deal you're least sure about. That's the one worth writing down."
-                addLabel="Reflect on a deal"
-                onAdd={() => { const id = uid(); setLib("deals", [{ id, created: date, title: "" }, ...lib.deals]); return id; }}
-                onChange={(id, k, v) => setLib("deals", lib.deals.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-                onDelete={(id) => setLib("deals", lib.deals.filter((x) => x.id !== id))} />
-            </div>
-          </Section>
-        )}
-
         {tab === "calls" && (
           <>
             <Section label="Call review" note="believed vs actual" top={24}>
@@ -1454,10 +1505,10 @@ function Judgment({ lib, setLib, index, ai, date }) {
                   onDelete={(id) => setLib("calls", lib.calls.filter((x) => x.id !== id))} />
               </div>
             </Section>
-            <Section label="Across your reviews" note={`${lib.calls.length + lib.deals.length} logged`}>
+            <Section label="Across your reviews" note={`${lib.calls.length} logged`}>
               {read ? (
                 <div className="tj-reveal" style={{ paddingTop: 18 }}>
-                  <Mark kind="generated" detail={`from ${lib.calls.length + lib.deals.length} reviews`} />
+                  <Mark kind="generated" detail={`from ${lib.calls.length} reviews`} />
                   <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{read}</div>
                   <Tap onClick={() => setRead(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "16px 0 0" }}>Dismiss</Tap>
                 </div>
@@ -1809,7 +1860,9 @@ function Talk({ talk, setTalk, index, ai }) {
     const content = (override || text).trim();
     if (!content || busy) return;
     const next = [...msgs, { role: "user", content, ts: Date.now() }];
-    setTalk({ ...talk, messages: next });
+    /* functional throughout: `talk` was captured at call time and spread again
+       after the await, discarding anything written during the request */
+    setTalk((t) => ({ ...t, messages: next }));
     setText("");
     setBusy(true);
     try {
@@ -1818,9 +1871,9 @@ function Talk({ talk, setTalk, index, ai }) {
         messages: next.map((m) => ({ role: m.role, content: m.content })),
         maxTokens: 700,
       });
-      setTalk({ ...talk, messages: [...next, { role: "assistant", content: out, ts: Date.now() }] });
+      setTalk((t) => ({ ...t, messages: [...next, { role: "assistant", content: out, ts: Date.now() }] }));
     } catch (e) {
-      setTalk({ ...talk, messages: [...next, { role: "assistant", content: "Couldn't reach the model just now. " + String(e.message || e), ts: Date.now(), error: true }] });
+      setTalk((t) => ({ ...t, messages: [...next, { role: "assistant", content: "Couldn't reach the model just now. " + String(e.message || e), ts: Date.now(), error: true }] }));
     }
     setBusy(false);
   };
@@ -1884,7 +1937,42 @@ function Talk({ talk, setTalk, index, ai }) {
 }
 
 /* ══════════ SETTINGS ══════════════════════════════════════ */
-function Settings({ core, setC, onExport, onImport, close }) {
+function ApiKeyField({ apiKey, onChange }) {
+  const [draft, setDraft] = useState("");
+  if (apiKey) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ fontFamily: SANS, fontSize: 15, color: C.ink70, letterSpacing: "0.04em" }}>
+          •••• {apiKey.slice(-4)}
+        </span>
+        <Tap onClick={() => onChange("")} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "6px 0" }}>Remove</Tap>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <input
+        type="password"
+        className="tj-date"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="sk-ant-…"
+        aria-label="Anthropic API key"
+        style={{ flex: 1 }}
+        autoComplete="off"
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
+      <Tap onClick={() => { if (draft.trim()) { onChange(draft.trim()); setDraft(""); } }}
+        style={{ fontFamily: SANS, fontSize: 13, color: draft.trim() ? C.accent : C.ink16, padding: "6px 0" }}>
+        Save
+      </Tap>
+    </div>
+  );
+}
+
+function Settings({ core, setC, apiKey, onApiKeyChange, onExport, onImport, close }) {
   const [tab, setTab] = useState("morning");
   const [newPrompt, setNewPrompt] = useState("");
   const [which, setWhich] = useState("morning");
@@ -1993,6 +2081,11 @@ function Settings({ core, setC, onExport, onImport, close }) {
 
         {tab === "data" && (
           <div style={{ paddingTop: 8 }}>
+            <div style={{ padding: "18px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+              <Eyebrow style={{ marginBottom: 12 }}>Anthropic API key</Eyebrow>
+              <ApiKeyField apiKey={apiKey} onChange={onApiKeyChange} />
+              <Note>Stored on this device only, sent to no one but api.anthropic.com. Without it, every counted and hand-written part of the app still works — the AI features just say so.</Note>
+            </div>
             <Tap onClick={onExport} style={{ display: "block", width: "100%", textAlign: "left", padding: "20px 0", fontFamily: SANS, fontSize: 16, color: C.ink, borderBottom: `1px solid ${C.lineSoft}` }}>
               Export everything as JSON
             </Tap>
@@ -2026,7 +2119,9 @@ export default function App() {
   const [index, setIndex] = useState([]);
   const [ink, setInkState] = useState({});
   const [inkDates, setInkDates] = useState([]);
+  const [apiKey, setApiKey] = useState("");
   const [ready, setReady] = useState(false);
+  const [storageError, setStorageError] = useState(false);
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
   const [toast, setToast] = useState("");
@@ -2037,31 +2132,43 @@ export default function App() {
   const dusk = (view === "today" && mode === "evening") || view === "talk";
   const dawn = view === "today" && mode === "morning";
 
+  const flash = useCallback((m) => { setToast(m); setTimeout(() => setToast(""), 2400); }, []);
+
   useEffect(() => {
     (async () => {
-      const c = await S.get("tj:core");
-      setCore(c ? { ...emptyCore(), ...c, customPrompts: { ...emptyCore().customPrompts, ...(c.customPrompts || {}) } } : emptyCore());
-      const l = await S.get("tj:lib");
-      setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
-      const t = await S.get("tj:talk");
-      setTalk(t || { messages: [] });
-      setIndex(await readIndex(4));
-      setReady(true);
+      try {
+        setCore(mergeCore(await S.get("tj:core")));
+        const l = await S.get("tj:lib");
+        setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
+        const t = await S.get("tj:talk");
+        setTalk(t || { messages: [] });
+        setApiKey((await S.get("tj:apikey")) || "");
+        setIndex(await readIndex(4));
+        setReady(true);
+      } catch (e) {
+        setStorageError(true);
+      }
     })();
   }, []);
 
   useEffect(() => {
     let alive = true;
     (async () => {
-      const d = await S.get("tj:day:" + date);
-      if (!alive) return;
-      setDay(mergeDay(date, d));
-      const j = await S.get("tj:journal:" + date);
-      if (!alive) return;
-      setJournal(j && j.date === date ? j : { date, entries: (j && j.entries) || [] });
-      const k = await S.get("tj:ink:" + date);
-      if (!alive) return;
-      setInkState(k && k.date === date ? k : { date });
+      try {
+        const d = await S.get("tj:day:" + date);
+        if (!alive) return;
+        setDay(mergeDay(date, d));
+        const j = await S.get("tj:journal:" + date);
+        if (!alive) return;
+        setJournal(j && j.date === date ? j : { date, entries: (j && j.entries) || [] });
+        const k = await S.get("tj:ink:" + date);
+        if (!alive) return;
+        setInkState(k && k.date === date ? k : { date });
+      } catch (e) {
+        /* A day that could not be read must never be saved over. Halt instead
+           of rendering an empty one the autosave would then commit. */
+        if (alive) setStorageError(true);
+      }
     })();
     return () => { alive = false; };
   }, [date]);
@@ -2069,45 +2176,92 @@ export default function App() {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const w = await S.get("tj:week:" + wkKey);
-      if (alive) setWeek(w && w.id === wkKey ? w : { id: wkKey });
-      const m = await S.get("tj:month:" + moKey);
-      if (alive) setMonth(m && m.id === moKey ? m : { id: moKey });
+      try {
+        const w = await S.get("tj:week:" + wkKey);
+        if (alive) setWeek(w && w.id === wkKey ? w : { id: wkKey });
+        const m = await S.get("tj:month:" + moKey);
+        if (alive) setMonth(m && m.id === moKey ? m : { id: moKey });
+      } catch (e) {
+        if (alive) setStorageError(true);
+      }
     })();
     return () => { alive = false; };
   }, [wkKey, moKey]);
 
+  /* Debounce while one record is being edited, but flush — never drop — when
+     the record changes identity or the component goes away. The old cleanup
+     cancelled the pending write, so typing and then tapping to another date
+     inside 700ms lost the text outright. */
   const useSave = (key, val, ok) => {
     const first = useRef(true);
+    const pending = useRef(null);
+
+    const flush = useCallback(() => {
+      const p = pending.current;
+      if (!p) return;
+      pending.current = null;
+      S.set(p.key, p.val).then((wrote) => { if (!wrote) flash("Couldn't save to this device"); });
+    }, [flash]);
+
     useEffect(() => {
       if (!val || ok === false) return;
       if (first.current) { first.current = false; return; }
-      const t = setTimeout(() => S.set(key, val), 700);
+      pending.current = { key, val };
+      const t = setTimeout(flush, 700);
       return () => clearTimeout(t);
-    }, [key, val, ok]);
+    }, [key, val, ok, flush]);
+
+    // key change or unmount: flush what is still pending for the old key
+    useEffect(() => () => flush(), [key, flush]);
+
+    // and let a backgrounding app flush every writer at once
+    useEffect(() => { flushers.add(flush); return () => { flushers.delete(flush); }; }, [flush]);
   };
-  useSave("tj:core", core, true);
-  useSave("tj:lib", lib, true);
-  useSave("tj:talk", talk, true);
-  useSave("tj:day:" + date, day, !!day && day.date === date);
-  useSave("tj:journal:" + date, journal, !!journal && journal.date === date);
-  useSave("tj:week:" + wkKey, week, !!week && week.id === wkKey);
-  useSave("tj:month:" + moKey, month, !!month && month.id === moKey);
-  useSave("tj:ink:" + date, ink, !!ink && ink.date === date);
+  const canSave = !storageError;
+  useSave("tj:core", core, canSave);
+  useSave("tj:lib", lib, canSave);
+  useSave("tj:talk", talk, canSave);
+  useSave("tj:day:" + date, day, canSave && !!day && day.date === date);
+  useSave("tj:journal:" + date, journal, canSave && !!journal && journal.date === date);
+  useSave("tj:week:" + wkKey, week, canSave && !!week && week.id === wkKey);
+  useSave("tj:month:" + moKey, month, canSave && !!month && month.id === moKey);
+  useSave("tj:ink:" + date, ink, canSave && !!ink && ink.date === date);
+
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") flushAllWrites(); };
+    window.addEventListener("pagehide", flushAllWrites);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flushAllWrites);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
 
   /* keep the index in step — this is what everything else reads */
   const idxFirst = useRef(true);
+  const idxPending = useRef(null);
+  const flushIndex = useCallback(() => {
+    const p = idxPending.current;
+    if (!p) return;
+    idxPending.current = null;
+    writeIndex(p.date, p.day, p.journal).then(() => {
+      const rows = dayToIndexRows(p.date, p.day, p.journal);
+      setIndex((cur) => [...cur.filter((r) => r.d !== p.date), ...rows].sort((a, b) => (a.d < b.d ? -1 : 1)));
+    }).catch(() => {});
+  }, []);
   useEffect(() => {
-    if (!day || !journal || day.date !== date || journal.date !== date) return;
+    if (!canSave || !day || !journal || day.date !== date || journal.date !== date) return;
     if (idxFirst.current) { idxFirst.current = false; return; }
-    const t = setTimeout(async () => {
-      await writeIndex(date, day, journal);
-      const rows = dayToIndexRows(date, day, journal);
-      setIndex((cur) => [...cur.filter((r) => r.d !== date), ...rows].sort((a, b) => (a.d < b.d ? -1 : 1)));
-    }, 1400);
+    idxPending.current = { date, day, journal };
+    const t = setTimeout(flushIndex, 1400);
     return () => clearTimeout(t);
-  }, [day, journal, date]);
+  }, [day, journal, date, canSave, flushIndex]);
+  useEffect(() => () => flushIndex(), [date, flushIndex]);
+  useEffect(() => { flushers.add(flushIndex); return () => { flushers.delete(flushIndex); }; }, [flushIndex]);
 
+  /* `journal` is a new object on every keystroke, so this used to rescan the
+     whole store per character typed. Entry count only moves when one is saved. */
+  const journalCount = journal ? (journal.entries || []).length : 0;
   useEffect(() => {
     if (view !== "journal") return;
     (async () => {
@@ -2116,11 +2270,10 @@ export default function App() {
       const ik = await S.list("tj:ink:");
       setInkDates(ik.map((k) => k.replace("tj:ink:", "")));
     })();
-  }, [view, journal]);
+  }, [view, date, journalCount]);
 
   useEffect(() => { setFocus(false); window.scrollTo({ top: 0 }); }, [view]);
 
-  const flash = (m) => { setToast(m); setTimeout(() => setToast(""), 2400); };
   const setD = (path, value) => setDay((d) => {
     if (!d) return d;
     if (path.length === 1) return { ...d, [path[0]]: value };
@@ -2131,10 +2284,15 @@ export default function App() {
   const setInk = (slot, v) => setInkState((i) => ({ ...i, date, [slot]: v }));
   const themes = useMemo(() => countThemes(index), [index]);
 
+  const changeApiKey = (v) => { setApiKey(v); S.set("tj:apikey", v); };
+
   const exportAll = async () => {
     const keys = await S.list("tj:");
     const bundle = { app: "TJ 3.0", version: 2, exported: new Date().toISOString(), data: {} };
-    for (const k of keys) bundle.data[k] = await S.get(k);
+    for (const k of keys) {
+      if (k === "tj:apikey") continue;
+      bundle.data[k] = await S.get(k);
+    }
     const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -2152,19 +2310,35 @@ export default function App() {
       try {
         const parsed = JSON.parse(String(r.result));
         const data = parsed.data || parsed;
-        for (const [k, v] of Object.entries(data)) if (k.startsWith("tj:") && v != null) await S.set(k, v);
-        const c = await S.get("tj:core");
-        setCore(c ? { ...emptyCore(), ...c } : emptyCore());
+        /* A write that silently failed used to still report "Imported", so the
+           owner believed a backup had restored when it had not. Count them. */
+        let wrote = 0;
+        let failed = 0;
+        for (const [k, v] of Object.entries(data)) {
+          if (!k.startsWith("tj:") || k === "tj:apikey" || v == null) continue;
+          if (await S.set(k, v)) wrote += 1; else failed += 1;
+        }
+        setCore(mergeCore(await S.get("tj:core")));
         const l = await S.get("tj:lib");
         setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
+        const t = await S.get("tj:talk");
+        setTalk(t || { messages: [] });
         setDay(mergeDay(date, await S.get("tj:day:" + date)));
         const j = await S.get("tj:journal:" + date);
         setJournal(j && j.date === date ? j : { date, entries: [] });
+        const w = await S.get("tj:week:" + wkKey);
+        setWeek(w && w.id === wkKey ? w : { id: wkKey });
+        const m = await S.get("tj:month:" + moKey);
+        setMonth(m && m.id === moKey ? m : { id: moKey });
         setIndex(await readIndex(4));
         const k = await S.get("tj:ink:" + date);
         setInkState(k && k.date === date ? k : { date });
+        const jk = await S.list("tj:journal:");
+        setJournalDates(jk.map((x) => x.replace("tj:journal:", "")).sort().reverse());
+        const ik = await S.list("tj:ink:");
+        setInkDates(ik.map((x) => x.replace("tj:ink:", "")));
         setSettings(false);
-        flash("Imported");
+        flash(failed ? `Imported ${wrote}, ${failed} couldn't be written` : "Imported");
       } catch (e) {
         setSettings(false);
         flash("That file couldn't be read");
@@ -2181,12 +2355,30 @@ export default function App() {
     if (a && typeof a.scrollIntoView === "function") a.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
   }, [view]);
 
+  /* A storage failure stops here rather than rendering an empty day the
+     autosave would then write over a real one. Say so plainly — silence would
+     look like a slow load, and the owner might start typing into nothing. */
+  if (storageError) {
+    return (
+      <div className="tj-root">
+        <style>{CSS}</style>
+        <main className="tj-main" style={{ paddingTop: 90 }}>
+          <Eyebrow>Storage</Eyebrow>
+          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 300, color: C.ink, lineHeight: 1.6, marginTop: 14 }}>
+            This device's storage couldn't be read, so nothing has been loaded — and nothing will be written over.
+          </div>
+          <Note>Close the app and open it again. Your writing is still on the device. Do not clear website data.</Note>
+        </main>
+      </div>
+    );
+  }
+
   if (!ready || !core || !day || !lib) {
-    return <div style={{ background: "#F5F2EA", minHeight: "100vh" }}><style>{CSS}</style></div>;
+    return <div style={{ background: "#F5F2EA", minHeight: "100dvh" }}><style>{CSS}</style></div>;
   }
 
   const nav = core.order.filter((id) => !core.hidden.includes(id) && SECTIONS.some((s) => s.id === id));
-  const aiOn = core.ai !== false && core.adaptive !== "never";
+  const aiOn = core.ai !== false && core.adaptive !== "never" && !!apiKey;
 
   const screens = {
     today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} ink={ink} setInk={setInk} themes={themes} />,
@@ -2240,7 +2432,7 @@ export default function App() {
 
       {settings && (
         <div className="tj-sheet-wrap" onClick={() => setSettings(false)}>
-          <Settings core={core} setC={setC} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} />
+          <Settings core={core} setC={setC} apiKey={apiKey} onApiKeyChange={changeApiKey} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} />
         </div>
       )}
       {toast && <div className="tj-toast">{toast}</div>}
@@ -2419,10 +2611,11 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .tj-inkfull {
   position: fixed; inset: 0; z-index: 70; background: var(--paper);
+  height: 100vh; height: 100dvh;
   padding: calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 14px);
   display: flex; flex-direction: column; animation: tjIn .3s ease;
 }
-.tj-inkfull .tj-inkwrap { flex: 1; }
+.tj-inkfull .tj-inkwrap { flex: 1; min-height: 0; margin-top: 10px; }
 
 .tj-finish {
   margin-top: 46px; padding: 40px 0 10px; border-top: 1px solid var(--line);
@@ -2652,6 +2845,13 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
     ctx.globalAlpha = 1;
   }, [strokes, paper, sel]);
 
+  /* `paint` changes identity on every committed stroke, and this effect used to
+     depend on it — so each stroke reassigned canvas.width/height, which wipes
+     and reallocates the whole bitmap. Size on real geometry changes only, and
+     reach the current paint through a ref. */
+  const paintRef = useRef(paint);
+  useEffect(() => { paintRef.current = paint; });
+
   useEffect(() => {
     const cvs = cvsRef.current, wrap = wrapRef.current;
     if (!cvs || !wrap) return;
@@ -2665,12 +2865,22 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
       cvs.style.height = r.height + "px";
       const ctx = cvs.getContext("2d");
       if (ctx) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paint();
+      paintRef.current();
     };
     fit();
     window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [paint, full, height]);
+    /* orientation change and the standalone toolbar settling both resize the
+       wrapper without a window resize event */
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(fit);
+      ro.observe(wrap);
+    }
+    return () => {
+      window.removeEventListener("resize", fit);
+      if (ro) ro.disconnect();
+    };
+  }, [full, height]);
 
   useEffect(() => { paint(); }, [paint]);
 
@@ -2774,7 +2984,9 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
           )}
         </div>
       </div>
-      <div ref={wrapRef} className="tj-inkwrap" style={{ height: full ? "calc(100vh - 210px)" : height }}>
+      {/* full page lets the flex column own the height — calc(100vh - 210px)
+          was wrong in standalone, where 100vh is not the usable viewport */}
+      <div ref={wrapRef} className="tj-inkwrap" style={full ? undefined : { height }}>
         <canvas ref={cvsRef} className="tj-canvas" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up} aria-label={label || "Handwriting canvas"} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10 }}>
@@ -2849,7 +3061,11 @@ const shows = (freq, dateKey, key) => {
 
 function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai, ink, setInk, themes }) {
   const am = day.am || {};
-  const setAm = (k, v) => setD(["am"], { ...am, [k]: v });
+  /* Was `setD(["am"], { ...am, [k]: v })`, which spread a stale closure: two
+     calls in one handler both built from the same `am`, so the second silently
+     discarded the first. That killed "Write it in my voice" and "Another".
+     The two-segment path merges against current state, so calls compose. */
+  const setAm = (k, v) => setD(["am", k], v);
   const [openAll, setOpenAll] = useState(false);
   const [libOpen, setLibOpen] = useState(false);
   const [writeMode, setWriteMode] = useState(false);
