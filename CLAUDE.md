@@ -14,7 +14,7 @@ Origin: `TJ30-adaptive.jsx`, a single React 18 file written for Claude's artifac
 
 ## The design is not up for renegotiation
 
-Editorial and typographic: a serif display face, hairline dividers, uppercase letterspaced eyebrow labels, generous whitespace, one muted green accent, three palettes that swap by context (`.tj-dawn` morning, parchment default, `.tj-dusk` evening and Talk).
+Editorial and typographic: a serif display face, hairline dividers, uppercase letterspaced eyebrow labels, generous whitespace, one muted green accent, three palettes that swap by context (`.tj-dawn` morning — warm clay on apricot, parchment default, `.tj-dusk` evening and Talk). The morning was muted green on sand and read flat; it is deliberately the warmest of the three now.
 
 Do not:
 
@@ -54,6 +54,19 @@ Modelled on the paper goal sheet TJ uses. Its mechanic is not "set goals" — it
 - Editing the sheet lives in Areas → Character, not in the morning. The morning is for doing it.
 
 Not built: the vision-board photo from the sheet. The app stores no images anywhere, and adding blob storage for one decorative panel was not worth it. IndexedDB would handle it if TJ wants it later.
+
+## The morning is short on purpose
+
+TJ's words after using it: *"quite a few things I have to fill out, so it almost feels like a chore"* and *"there's some elements of duplicativeness."* He was right — four separate steps circled the same identity material.
+
+Six beats, each distinct: energy and headspace (two taps), the quote, gratitude, who you're being, one question, today's three, the sheet.
+
+- **One question, not four.** `MORNING_QUESTIONS` rotates one prompt a day. It replaced the confidence, anticipation and relationships frames, which overlapped each other and the intention.
+- **The sheet does the identity work.** Affirmation and declaration are therefore `off` by default. They still exist in Settings → Morning; they are not deleted, because the defaults are a judgement and he may want them back.
+- **Focus areas are read back, never re-asked.** The morning shows the next move you already wrote for each area in focus. It does not ask you to write another line about it, and that step never blocks the flow.
+- `FREQ_DEFAULT` and `FREQ_VERSION` carry this. Bump the version when the defaults change meaningfully, or a saved `freq` from the long morning will keep the chore.
+
+Do not add a step without taking one away, and do not add a question that could be answered with the same sentence as an existing one.
 
 ## Metrics and charts
 

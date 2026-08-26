@@ -106,6 +106,10 @@ describe("sequential updates to the same record compose", () => {
   });
 
   it("'Another' actually swaps the affirmation", async () => {
+    /* the affirmation ships switched off now that the sheet does that work, so
+       turn it on for this test — the regression it guards is setAm, not the
+       default */
+    await storage.set("tj:core", JSON.stringify({ freqVersion: 2, freq: { gratitude: "always", affirmation: "always" } }));
     await renderReady();
 
     // gratitude gates the next step open
