@@ -17,7 +17,9 @@ function findChromium() {
   return undefined;
 }
 
-const URL = "http://localhost:4173/";
+/* defaults to the local preview; point at a deploy with
+   TJ_URL=https://… node scripts/smoke.mjs */
+const URL = process.env.TJ_URL || "http://localhost:4173/";
 const errors = [];
 const exe = findChromium();
 const browser = await chromium.launch(exe ? { executablePath: exe } : {});
