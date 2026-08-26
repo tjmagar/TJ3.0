@@ -34,6 +34,7 @@ The app's one taxonomy. `ANCHORS`, the Becoming goal buckets, `THEMES`, book `OU
 
 Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest), **Relationships** (Marriage, Fatherhood, Friendship), **Performance** (Work, Mind), **Identity** (Faith, Character).
 
+- **Every area carries its own `hue`**, repainted onto `--accent` for that page's subtree, so a drilled-down area feels like its own place rather than eleven identical forms. All eleven clear 4.5:1 on the parchment ground Areas renders on — checked, not eyeballed.
 - **Areas are data, not constants.** They can be added, renamed, retired and reordered. The list a man has at 36 is not the one he has at 46.
 - **Seasons.** Every area is *in focus*, *maintaining*, or *dormant*. **Three in focus, maximum.** Dormant is a deliberate, guilt-free choice — an area set down must not sit there accusing him. Eleven simultaneous focus areas is how a person levels up in none of them.
 - **Play & rest is not decoration.** Without it the app measures only striving, and a genuinely restful week reads as a failed one. That is a quiet way for a tool like this to make its owner worse. Do not quietly drop it.
@@ -53,13 +54,17 @@ Modelled on the paper goal sheet TJ uses. Its mechanic is not "set goals" — it
 - What was written files into Character under "Written again today", so the run of consecutive days is counted from the record rather than stored as a score.
 - Editing the sheet lives in Areas → Character, not in the morning. The morning is for doing it.
 
-Not built: the vision-board photo from the sheet. The app stores no images anywhere, and adding blob storage for one decorative panel was not worth it. IndexedDB would handle it if TJ wants it later.
+**The vision board** is the sheet's photo panel. TJ names what he is working toward; the photographs are his own, added from the camera roll and downscaled to ~1400px JPEG on the way in so storage and the JSON export stay sane. Nothing ships with the app — no stock image carries the same weight, and shipping product photography would be someone else's copyright. It appears at the top of the morning only once at least one picture exists, so an empty board never greets him.
 
 ## The morning is short on purpose
 
 TJ's words after using it: *"quite a few things I have to fill out, so it almost feels like a chore"* and *"there's some elements of duplicativeness."* He was right — four separate steps circled the same identity material.
 
 Six beats, each distinct: energy and headspace (two taps), the quote, gratitude, who you're being, one question, today's three, the sheet.
+
+**Everything is on screen.** Progressive disclosure hid the sheet and the question behind a "Show the rest" TJ never found — a morning you have to unfold is a longer morning, not a shorter one.
+
+A **scripture verse** (World English Bible, public domain) and a **Stoic passage** (Marcus, Seneca, Epictetus in public-domain translation) rotate daily under the quote. The Daily Stoic's own commentary is Ryan Holiday's and is not reproduced; only the primary sources it draws on.
 
 - **One question, not four.** `MORNING_QUESTIONS` rotates one prompt a day. It replaced the confidence, anticipation and relationships frames, which overlapped each other and the intention.
 - **The sheet does the identity work.** Affirmation and declaration are therefore `off` by default. They still exist in Settings → Morning; they are not deleted, because the defaults are a judgement and he may want them back.
