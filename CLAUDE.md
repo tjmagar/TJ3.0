@@ -40,6 +40,10 @@ If a design change is genuinely required to solve a technical problem, propose i
 
 Vite + React 18, plain JSX. Static site. GitHub → Vercel → iPad Home Screen PWA. No Next.js, no Docker, no VPS, no persistent server. Configure Vercel rewrites so refreshing a client-side route does not 404.
 
+**Shipping is not a separate decision.** Work is only useful once it reaches the iPad, and the only route there is `main`. When a change is finished and verified, open the pull request and merge it without asking. Do not leave finished work sitting on a branch waiting for permission.
+
+Finished still means finished: the build passes, `npm test` passes, and anything the change plausibly breaks has been checked. Say what landed afterwards, and flag anything you could not verify — merging without asking is not licence to merge without looking.
+
 ## API key — decision already made
 
 Pure static site, no serverless proxy. The app calls the Anthropic API directly from the browser using a key entered once in Settings → Data, stored in IndexedDB under `tj:apikey`. Masked input, with a remove action. Exclude that key from the JSON export.

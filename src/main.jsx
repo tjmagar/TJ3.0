@@ -13,12 +13,20 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
 if ("serviceWorker" in navigator) {
   import("virtual:pwa-register").then(({ registerSW }) => {
-    registerSW({
-      onNeedRefresh() {
-        if (confirm("A new version of TJ 3.0 is ready. Reload now?")) {
-          window.location.reload();
-        }
-      },
-    });
+    /* A new build installs quietly and takes over the next time the app is
+       launched from a cold start.
+
+       It used to ask, and asking was broken: onNeedRefresh fires while the new
+       worker is *waiting*, and activating it requires the updateSW function
+       registerSW returns. This called reload() instead, so the old worker kept
+       control, the new one kept reporting itself ready, and the prompt came
+       back on every single load.
+
+       No dialog now either way. This app does not interrupt writing with a
+       system prompt, and it does not need to: navigations are served
+       network-first, so any reload already fetches the current index.html and
+       with it the current build. The worker is the offline shell, and a shell
+       one launch behind costs nothing. */
+    registerSW({ immediate: true });
   });
 }
