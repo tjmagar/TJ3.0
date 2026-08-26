@@ -740,7 +740,7 @@ function RecordList({ records, fields, onChange, onAdd, onDelete, addLabel, empt
 }
 
 /* ══════════ TODAY — morning light, evening dark ═══════════ */
-function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMode, index, ai, ink, setInk, themes }) {
+function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMode, index, ai, aiWhy, ink, setInk, themes }) {
   const [showBody, setShowBody] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -786,7 +786,7 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
 
       {mode === "morning" ? (
         <Morning day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey}
-          index={index} ai={ai} ink={ink} setInk={setInk} themes={themes} />
+          index={index} ai={ai} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />
       ) : (
         <>
           <Title>{date === todayKey ? "Evening." : longDate(date)}</Title>
@@ -822,7 +822,7 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
             {busy ? <Working /> : (
               <Ghost onClick={askForQuestion} disabled={!ai}>
                 <span style={{ color: C.accent, marginRight: 8 }}>+</span>
-                {ai ? "Ask me something harder" : "Reflection is switched off in settings"}
+                {ai ? "Ask me something harder" : aiWhy}
               </Ghost>
             )}
             {err && <Note>{err}</Note>}
@@ -977,7 +977,7 @@ function People({ day, setD, core, setC, index, lib, setLib, ai }) {
 }
 
 /* ══════════ FAITH ═════════════════════════════════════════ */
-function Faith({ day, setD, index, ai, lib, setLib }) {
+function Faith({ day, setD, index, ai, aiWhy, lib, setLib }) {
   const [thread, setThread] = useState(null);
   const [busy, setBusy] = useState(false);
   const rows = useMemo(() => index.filter((r) => r.sec === "faith"), [index]);
@@ -1157,7 +1157,7 @@ function Journal({ journal, setJournal, date, setDate, dates, focus, setFocus, i
 }
 
 /* ══════════ PATTERNS — insights, blind spots, experiments, synthesis ══ */
-function Patterns({ lib, setLib, index, core, date, ai, week, setWeek, month, setMonth }) {
+function Patterns({ lib, setLib, index, core, date, ai, aiWhy, week, setWeek, month, setMonth }) {
   const [tab, setTab] = useState("insights");
   const themes = useMemo(() => countThemes(index), [index]);
   const opts = [
@@ -1173,9 +1173,9 @@ function Patterns({ lib, setLib, index, core, date, ai, week, setWeek, month, se
       <Segment options={opts} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
       <div key={tab} className="tj-reveal">
-        {tab === "insights" && <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} />}
-        {tab === "blind" && <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} />}
-        {tab === "experiments" && <Experiments lib={lib} setLib={setLib} index={index} ai={ai} date={date} />}
+        {tab === "insights" && <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} aiWhy={aiWhy} />}
+        {tab === "blind" && <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} />}
+        {tab === "experiments" && <Experiments lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} />}
         {tab === "week" && <Synthesis scope="week" record={week} setRecord={setWeek} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
         {tab === "month" && <Synthesis scope="month" record={month} setRecord={setMonth} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
       </div>
@@ -1212,7 +1212,7 @@ function Verdict({ item, onSet, onEdit, onDelete }) {
   );
 }
 
-function Insights({ lib, setLib, index, themes, ai }) {
+function Insights({ lib, setLib, index, themes, ai, aiWhy }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const live = lib.insights;
@@ -1265,7 +1265,7 @@ function Insights({ lib, setLib, index, themes, ai }) {
         {busy ? <Working label="Reading everything you've written" /> : (
           <Ghost onClick={generate} disabled={!ai}>
             <span style={{ color: C.accent, marginRight: 8 }}>—</span>
-            {ai ? (live.length ? "Read me again" : "Read what I've written") : "Reflection is switched off in settings"}
+            {ai ? (live.length ? "Read me again" : "Read what I've written") : aiWhy}
           </Ghost>
         )}
         {err && <Note>{err}</Note>}
@@ -1274,7 +1274,7 @@ function Insights({ lib, setLib, index, themes, ai }) {
   );
 }
 
-function BlindSpots({ lib, setLib, index, ai }) {
+function BlindSpots({ lib, setLib, index, ai, aiWhy }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const live = lib.blindspots;
@@ -1306,14 +1306,14 @@ function BlindSpots({ lib, setLib, index, ai }) {
         </div>
       ))}
       {busy ? <Working label="Looking for what you keep stepping around" /> : (
-        <Ghost onClick={generate} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Show me what I'm missing" : "Reflection is switched off in settings"}</Ghost>
+        <Ghost onClick={generate} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Show me what I'm missing" : aiWhy}</Ghost>
       )}
       {err && <Note>{err}</Note>}
     </Section>
   );
 }
 
-function Experiments({ lib, setLib, index, ai, date }) {
+function Experiments({ lib, setLib, index, ai, aiWhy, date }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const live = lib.experiments;
@@ -1356,7 +1356,7 @@ function Experiments({ lib, setLib, index, ai, date }) {
         />
       </div>
       {busy ? <Working label="Looking for something worth testing" /> : (
-        <Ghost onClick={suggest} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Suggest one from my patterns" : "Reflection is switched off in settings"}</Ghost>
+        <Ghost onClick={suggest} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Suggest one from my patterns" : aiWhy}</Ghost>
       )}
       {err && <Note>{err}</Note>}
     </Section>
@@ -1491,7 +1491,7 @@ function Judgment({ lib, setLib, date }) {
 const OUTCOMES = ["Decision-making","Relationships","Patience","Discipline","Negotiation","Sales judgment","Psychology","Faith","Health","Leadership","Happiness","Identity"];
 const KB_TYPES = ["Principle","Lesson","Quote","Rule","Sales","Relationship","Faith","Health"];
 
-function Library({ lib, setLib, index, ai, date }) {
+function Library({ lib, setLib, index, ai, aiWhy, date }) {
   const [tab, setTab] = useState("books");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -1573,14 +1573,15 @@ function Library({ lib, setLib, index, ai, date }) {
                     empty="Every book here should answer a question you're actually stuck on."
                     addLabel="Add a book"
                     onAdd={() => { const id = uid(); setLib("books", [{ id, created: date, title: "", status: "Want to read" }]); return id; }}
-                    onChange={() => {}} onDelete={() => {}} />
+                    onChange={(id, k, v) => setLib("books", lib.books.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
+                    onDelete={(id) => setLib("books", lib.books.filter((x) => x.id !== id))} />
                 </div>
               </Section>
             )}
 
             <div style={{ marginTop: 10 }}>
               {busy ? <Working label="Matching books to what you keep writing about" /> : (
-                <Ghost onClick={recommend} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Recommend from my patterns" : "Reflection is switched off in settings"}</Ghost>
+                <Ghost onClick={recommend} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Recommend from my patterns" : aiWhy}</Ghost>
               )}
               {err && <Note>{err}</Note>}
             </div>
@@ -1777,7 +1778,7 @@ function Becoming({ core, setC, index, ai, date }) {
 }
 
 /* ══════════ TALK ══════════════════════════════════════════ */
-function Talk({ talk, setTalk, index, ai }) {
+function Talk({ talk, setTalk, index, ai, aiWhy }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
@@ -1856,7 +1857,7 @@ function Talk({ talk, setTalk, index, ai }) {
       </div>
 
       <div className="tj-composer">
-        <Grow value={text} onChange={setText} placeholder={ai ? "Say it plainly." : "Reflection is switched off in settings"} ariaLabel="Message" size={17} minH={30} />
+        <Grow value={text} onChange={setText} placeholder={ai ? "Say it plainly." : aiWhy} ariaLabel="Message" size={17} minH={30} />
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10 }}>
           {msgs.length > 0 ? (
             <Tap onClick={() => setTalk({ ...talk, messages: [] })} style={{ fontFamily: SANS, fontSize: 12.5, color: C.ink28, padding: "6px 0" }}>Start fresh</Tap>
@@ -2321,17 +2322,21 @@ export default function App() {
 
   const nav = core.order.filter((id) => !core.hidden.includes(id) && SECTIONS.some((s) => s.id === id));
   const aiOn = core.ai !== false && core.adaptive !== "never" && !!apiKey;
+  /* Why it is off, not just that it is. This used to say "switched off in
+     settings" even when nothing was switched off and the key was simply
+     absent, which sent TJ hunting through settings for a toggle. */
+  const aiWhy = !apiKey ? "Add an API key in Settings → Data" : "Reflection is switched off in settings";
 
   const screens = {
-    today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} ink={ink} setInk={setInk} themes={themes} />,
-    people: <People day={day} setD={setD} core={core} setC={setC} index={index} lib={lib} setLib={setLib} ai={aiOn} />,
-    faith: <Faith day={day} setD={setD} index={index} ai={aiOn} lib={lib} setLib={setLib} />,
+    today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />,
+    people: <People day={day} setD={setD} core={core} setC={setC} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} />,
+    faith: <Faith day={day} setD={setD} index={index} ai={aiOn} aiWhy={aiWhy} lib={lib} setLib={setLib} />,
     journal: <Journal journal={journal} setJournal={setJournal} date={date} setDate={setDate} dates={journalDates} focus={focus} setFocus={setFocus} ink={ink} setInk={setInk} index={index} inkDates={inkDates} core={core} />,
-    patterns: <Patterns lib={lib} setLib={setLib} index={index} core={core} date={date} ai={aiOn} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
+    patterns: <Patterns lib={lib} setLib={setLib} index={index} core={core} date={date} ai={aiOn} aiWhy={aiWhy} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
     judgment: <Judgment lib={lib} setLib={setLib} date={date} />,
-    library: <Library lib={lib} setLib={setLib} index={index} ai={aiOn} date={date} />,
-    becoming: <Becoming core={core} setC={setC} index={index} ai={aiOn} date={date} />,
-    talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} />,
+    library: <Library lib={lib} setLib={setLib} index={index} ai={aiOn} aiWhy={aiWhy} date={date} />,
+    becoming: <Becoming core={core} setC={setC} index={index} ai={aiOn} aiWhy={aiWhy} date={date} />,
+    talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} aiWhy={aiWhy} />,
   };
 
   return (
@@ -2999,7 +3004,7 @@ const shows = (freq, dateKey, key) => {
   return v === "often" ? h % 4 !== 0 : h % 3 === 0;
 };
 
-function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai, ink, setInk, themes }) {
+function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai, aiWhy, ink, setInk, themes }) {
   const am = day.am || {};
   /* Was `setD(["am"], { ...am, [k]: v })`, which spread a stale closure: two
      calls in one handler both built from the same `am`, so the second silently
@@ -3329,7 +3334,7 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
 
       {on("deeper") && (
         <div className="tj-reveal">
-          <DeeperQuestion day={day} setD={setD} date={date} index={index} ai={ai} />
+          <DeeperQuestion day={day} setD={setD} date={date} index={index} ai={ai} aiWhy={aiWhy} />
         </div>
       )}
 
@@ -3430,7 +3435,7 @@ function Quote({ quote, core, setC }) {
   );
 }
 
-function DeeperQuestion({ day, setD, date, index, ai }) {
+function DeeperQuestion({ day, setD, date, index, ai, aiWhy }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const list = day.morning || [];
@@ -3458,7 +3463,7 @@ function DeeperQuestion({ day, setD, date, index, ai }) {
         </div>
       ))}
       {busy ? <Working label="Reading back" /> : (
-        <Ghost onClick={ask} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>+</span>{ai ? "Ask me something from the record" : "Reflection is switched off"}</Ghost>
+        <Ghost onClick={ask} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>+</span>{ai ? "Ask me something from the record" : aiWhy}</Ghost>
       )}
       {err && <Note>{err}</Note>}
     </Section>
@@ -3580,7 +3585,15 @@ function History({ index, inkDates, core, setDate, date }) {
         {groups.map((g) => {
           const agg = g.items.reduce((a, x) => ({ typed: a.typed + x.typed, gratitude: a.gratitude + x.gratitude, identity: a.identity + x.identity, ink: a.ink || x.ink, win: a.win || x.win }), { typed: 0, gratitude: 0, identity: 0, ink: false, win: false });
           return (
-            <Tap key={g.key} onClick={() => scale === "day" && setDate(g.items[0].d)}
+            /* Every row looks and presses like a control, so every row has to
+               do something. Only the day scale used to respond; in week, month
+               and year a tap gave the press animation and nothing else, which
+               reads as a broken link. Coarser scales now drill inward. */
+            <Tap key={g.key} onClick={() => {
+              if (scale === "day") return setDate(g.items[0].d);
+              setScale(scale === "year" ? "month" : scale === "month" ? "week" : "day");
+              setDate(g.items[0].d);
+            }}
               style={{ display: "flex", width: "100%", alignItems: "center", justifyContent: "space-between", gap: 14, padding: "15px 0", borderBottom: `1px solid ${C.lineSoft}`, textAlign: "left" }}>
               <span style={{ flex: 1, fontFamily: SERIF, fontSize: 17, fontWeight: 300, color: g.items[0].d === date ? C.accent : C.ink70 }}>{g.label}</span>
               <span style={{ fontFamily: SANS, fontSize: 11, color: C.ink16, minWidth: 34, textAlign: "right" }}>{agg.typed || ""}</span>
