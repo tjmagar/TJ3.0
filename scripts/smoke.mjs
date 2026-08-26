@@ -142,8 +142,12 @@ ok(`.tj-main stays at the 640 reading measure (${Math.round(w)}px)`, Math.round(
 // 13. export → fresh profile → import round trip
 await page.click('.tj-navitem:text-is("Journal")');
 await page.waitForTimeout(350);
-const entry = await page.waitForSelector('[aria-label="Journal entry"]');
-await entry.fill("A line I would be upset to lose in a restore.");
+/* tapping the field drops the app into distraction-free focus mode, which
+   remounts the textarea — so click, let it settle, then type like a person */
+await page.click('[aria-label="Journal entry"]');
+await page.waitForTimeout(400);
+await page.keyboard.type("A line I would be upset to lose in a restore.");
+await page.waitForTimeout(300);
 await page.click('button:text-is("Save entry")');
 await page.waitForTimeout(1800);
 
@@ -200,6 +204,65 @@ ok(`no third-party requests${thirdParty.length ? " — " + [...new Set(thirdPart
 
 // 15. no blocking dialogs anywhere in that whole run, including across reloads
 ok(`no blocking dialogs${dialogs.length ? " — saw: " + dialogs.join(" | ") : ""}`, dialogs.length === 0);
+
+
+// 16. the data half: areas track numbers, not just feelings
+await page.goto(URL, { waitUntil: "networkidle" });
+await page.waitForSelector(".tj-nav", { timeout: 10000 });
+await page.click('.tj-navitem:text-is("Areas")');
+await page.waitForTimeout(400);
+await page.click('.tj-main >> text=Body');
+await page.waitForTimeout(500);
+const bodyPage = (await page.textContent(".tj-main")) || "";
+ok("an area leads with stat tiles", /Sleep/.test(bodyPage) && /Weight/.test(bodyPage) && /Energy/.test(bodyPage));
+ok("an area offers a trend with ranges", /Trend/.test(bodyPage) && /30d/.test(bodyPage) && /1y/.test(bodyPage));
+ok("an area offers a log for today", /Log today/.test(bodyPage));
+
+// log two numbers and confirm they persist and plot
+const nums = await page.$$(".tj-num");
+ok(`numeric inputs render (${nums.length})`, nums.length >= 2);
+await nums[0].fill("7.5");
+await page.waitForTimeout(200);
+await nums[1].fill("182");
+await page.waitForTimeout(1800);
+await page.reload({ waitUntil: "networkidle" });
+await page.waitForSelector(".tj-nav", { timeout: 10000 });
+await page.click('.tj-navitem:text-is("Areas")');
+await page.waitForTimeout(400);
+await page.click('.tj-main >> text=Body');
+await page.waitForTimeout(500);
+const again = await page.$$eval(".tj-num", (n) => n.map((x) => x.value));
+ok(`logged metrics survive a reload (${again.slice(0, 2).join(", ")})`, again[0] === "7.5" && again[1] === "182");
+/* one day of data draws nothing, correctly — a trend needs days. Log across
+   three of them and confirm the chart then appears. */
+ok("a single day shows the empty trend state rather than a misleading line",
+  /Not enough logged yet/.test((await page.textContent(".tj-main")) || ""));
+for (const v of ["7.0", "8.0"]) {
+  await page.click('[aria-label="Previous day"]');
+  await page.waitForTimeout(600);
+  const n = await page.$$(".tj-num");
+  await n[0].fill(v);
+  await page.waitForTimeout(1700);
+}
+/* the trend window ends on the day being viewed, so come back to today
+   before asking whether three days of data plot */
+await page.click('[aria-label="Next day"]');
+await page.waitForTimeout(500);
+await page.click('[aria-label="Next day"]');
+await page.waitForTimeout(900);
+const svgs = await page.$$eval(".tj-main svg", (n) => n.length);
+ok(`charts render as inline svg once there are days to plot (${svgs})`, svgs > 0);
+const polyline = await page.$$eval(".tj-main svg path", (n) => n.filter((x) => (x.getAttribute("d") || "").includes("L")).length);
+ok(`the trend draws a real line (${polyline} paths)`, polyline > 0);
+
+// 17. journal reads like a product, not a form
+await page.click('.tj-navitem:text-is("Journal")');
+await page.waitForTimeout(450);
+const j = (await page.textContent(".tj-main")) || "";
+ok("journal leads with counted stats", /Days written/.test(j) && /Current run/.test(j) && /Words kept/.test(j));
+ok("journal offers write / by hand / history", /Write/.test(j) && /By hand/.test(j) && /History/.test(j));
+ok("journal offers prompt cards", (await page.$$(".tj-prompt")).length >= 6);
+
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();
