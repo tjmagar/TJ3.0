@@ -170,19 +170,73 @@ const AREA_GROUPS = ["Foundation", "Relationships", "Performance", "Identity"];
 /* `day` names the record field an area writes its daily entries into, where it
    has one. Those fields already exist and keep their shape, so nothing written
    before this change has to move. */
+/* Each area carries metrics — the structured half. `kind` decides the input and
+   the mark: scale is 1–5 dots, toggle is done/not, the rest are numbers with a
+   unit. `goal` says which direction is good, so a delta can be coloured
+   honestly rather than "up is green". The first metric is the area's headline. */
 const AREA_DEFS = [
-  { id: "body",       label: "Body",        group: "Foundation",    day: "body",      line: "Do the boring basics well." },
-  { id: "money",      label: "Money",       group: "Foundation",    day: "money",     line: "Spend like the man who earned it." },
-  { id: "home",       label: "Home",        group: "Foundation",    day: "home",      line: "Order where you live." },
-  { id: "play",       label: "Play & rest", group: "Foundation",    day: "play",      line: "Rest is not the reward for finishing." },
-  { id: "marriage",   label: "Marriage",    group: "Relationships", day: "wife",      line: "Listen before solving." },
-  { id: "fatherhood", label: "Fatherhood",  group: "Relationships", day: "daughter",  line: "20 minutes fully present." },
-  { id: "friendship", label: "Friendship",  group: "Relationships", day: "friendship",line: "The friends you keep, you call." },
-  { id: "work",       label: "Work",        group: "Performance",   day: "work",      line: "Improve judgment, not just activity." },
-  { id: "mind",       label: "Mind",        group: "Performance",   day: "mind",      line: "Read something that changes a decision." },
-  { id: "faith",      label: "Faith",       group: "Identity",      day: "faith",     line: "Prayer, scripture, or stillness." },
-  { id: "character",  label: "Character",   group: "Identity",      day: "character", line: "Keep the promises you made this morning." },
+  { id: "body", label: "Body", group: "Foundation", day: "body", line: "Do the boring basics well.",
+    metrics: [
+      { id: "sleep", label: "Sleep", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
+      { id: "weight", label: "Weight", unit: "lb", kind: "number", goal: "flat", step: 0.2 },
+      { id: "trained", label: "Trained", kind: "toggle", goal: "up" },
+      { id: "energy", label: "Energy", kind: "scale", goal: "up" },
+    ] },
+  { id: "money", label: "Money", group: "Foundation", day: "money", line: "Spend like the man who earned it.",
+    metrics: [
+      { id: "net", label: "Net worth", unit: "$", kind: "currency", goal: "up", step: 100 },
+      { id: "spent", label: "Spent today", unit: "$", kind: "currency", goal: "down", step: 5 },
+      { id: "saved", label: "Saved", unit: "$", kind: "currency", goal: "up", step: 50 },
+    ] },
+  { id: "home", label: "Home", group: "Foundation", day: "home", line: "Order where you live.",
+    metrics: [
+      { id: "order", label: "In order", kind: "scale", goal: "up" },
+      { id: "fixed", label: "Put right", kind: "toggle", goal: "up" },
+    ] },
+  { id: "play", label: "Play & rest", group: "Foundation", day: "play", line: "Rest is not the reward for finishing.",
+    metrics: [
+      { id: "rested", label: "Rested", kind: "scale", goal: "up" },
+      { id: "funmin", label: "Time on something you enjoy", unit: "min", kind: "number", goal: "up", step: 15 },
+    ] },
+  { id: "marriage", label: "Marriage", group: "Relationships", day: "wife", line: "Listen before solving.",
+    metrics: [
+      { id: "connected", label: "Connected", kind: "scale", goal: "up" },
+      { id: "together", label: "Time together", unit: "min", kind: "number", goal: "up", step: 15 },
+    ] },
+  { id: "fatherhood", label: "Fatherhood", group: "Relationships", day: "daughter", line: "20 minutes fully present.",
+    metrics: [
+      { id: "present", label: "Fully present", unit: "min", kind: "number", goal: "up", step: 10 },
+      { id: "quality", label: "Quality", kind: "scale", goal: "up" },
+    ] },
+  { id: "friendship", label: "Friendship", group: "Relationships", day: "friendship", line: "The friends you keep, you call.",
+    metrics: [
+      { id: "reached", label: "Reached out", kind: "toggle", goal: "up" },
+      { id: "seen", label: "Saw someone", kind: "toggle", goal: "up" },
+    ] },
+  { id: "work", label: "Work", group: "Performance", day: "work", line: "Improve judgment, not just activity.",
+    metrics: [
+      { id: "deep", label: "Deep work", unit: "hrs", kind: "number", goal: "up", step: 0.5 },
+      { id: "judgment", label: "Judgment", kind: "scale", goal: "up" },
+    ] },
+  { id: "mind", label: "Mind", group: "Performance", day: "mind", line: "Read something that changes a decision.",
+    metrics: [
+      { id: "read", label: "Reading", unit: "min", kind: "number", goal: "up", step: 10 },
+      { id: "clarity", label: "Clarity", kind: "scale", goal: "up" },
+    ] },
+  { id: "faith", label: "Faith", group: "Identity", day: "faith", line: "Prayer, scripture, or stillness.",
+    metrics: [
+      { id: "practice", label: "Practised", kind: "toggle", goal: "up" },
+      { id: "still", label: "Stillness", unit: "min", kind: "number", goal: "up", step: 5 },
+    ] },
+  { id: "character", label: "Character", group: "Identity", day: "character", line: "Keep the promises I made this morning.",
+    metrics: [
+      { id: "kept", label: "Promises kept", kind: "scale", goal: "up" },
+      { id: "steady", label: "Steady under pressure", kind: "scale", goal: "up" },
+    ] },
 ];
+
+const metricsOf = (area) => (AREA_DEFS.find((d) => d.id === area.id) || {}).metrics || [];
+const ALL_METRICS = AREA_DEFS.flatMap((d) => (d.metrics || []).map((m) => ({ ...m, areaId: d.id })));
 
 /* The prompts an area asks day to day. The four that existed before keep their
    exact questions, so no entry written against them is orphaned. */
@@ -334,6 +388,231 @@ async function readAllIndex() {
   return out.sort((a, b) => (a.d < b.d ? -1 : 1));
 }
 
+/* ── metric series: month-sharded, same shape as the text index ──
+   Trends need numbers across days, which the text index cannot answer. Kept
+   separately and small: one record per month, dateKey -> { metricId: value }. */
+const metChains = new Map();
+
+function writeMetrics(dateKey, metrics) {
+  const key = "tj:met:" + monthKey(dateKey);
+  const prior = metChains.get(key) || Promise.resolve();
+  const next = prior.then(async () => {
+    const cur = (await S.get(key)) || {};
+    const clean = {};
+    for (const [k, v] of Object.entries(metrics || {})) if (v !== "" && v != null) clean[k] = v;
+    if (Object.keys(clean).length) cur[dateKey] = clean; else delete cur[dateKey];
+    await S.set(key, cur);
+  });
+  metChains.set(key, next.catch(() => {}));
+  return next;
+}
+
+async function readMetrics(months = 12, endKey) {
+  const end = endKey || keyOf(new Date());
+  const out = {};
+  const d = parseKey(end);
+  for (let i = 0; i < months; i++) {
+    const mk = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+    try {
+      const rows = await S.get("tj:met:" + mk);
+      if (rows) Object.assign(out, rows);
+    } catch (e) { /* a damaged shard costs that month, not the series */ }
+    d.setMonth(d.getMonth() - 1);
+  }
+  return out;
+}
+
+/* one metric as an ordered series, oldest first */
+const seriesOf = (series, metricId, days = 60, endKey) => {
+  const end = endKey || keyOf(new Date());
+  const out = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const k = addDays(end, -i);
+    const v = (series[k] || {})[metricId];
+    out.push({ d: k, v: typeof v === "number" ? v : v === true ? 1 : v === false ? 0 : null });
+  }
+  return out;
+};
+
+const compact = (n, kind) => {
+  if (n == null) return "—";
+  if (kind === "currency") {
+    const a = Math.abs(n);
+    if (a >= 1e6) return "$" + (n / 1e6).toFixed(1).replace(/\.0$/, "") + "M";
+    if (a >= 1e4) return "$" + Math.round(n / 1e3) + "K";
+    return "$" + Math.round(n).toLocaleString();
+  }
+  if (kind === "toggle") return n ? "Yes" : "No";
+  const r = Math.round(n * 10) / 10;
+  return String(r);
+};
+
+/* ── chart primitives: inline SVG, one series each ─────────────
+   Single series throughout, so no legend and no categorical palette — the
+   heading says what is plotted. 2px lines, a 10% wash, hairline grid, one
+   end-dot with a surface ring, and only the endpoint labelled. */
+
+function Sparkline({ data, w = 96, h = 26, kind = "number" }) {
+  const pts = data.filter((p) => p.v != null);
+  if (!pts.length) return <span style={{ display: "inline-block", width: w, height: h }} />;
+  const xs = data.length - 1;
+
+  /* magnitude reads as bars from a baseline; only continuous data gets a line */
+  if (kind === "toggle" || kind === "scale") {
+    const hi = kind === "toggle" ? 1 : 5;
+    const slot = w / data.length;
+    const bw = Math.max(1.5, slot - 1.5);
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true" style={{ display: "block" }}>
+        {data.map((p, i) => {
+          if (p.v == null) return null;
+          const val = Math.max(0, Math.min(hi, p.v));
+          const bh = Math.max(1.5, (val / hi) * (h - 4));
+          const isLast = i === xs;
+          return <rect key={i} x={i * slot} y={h - 2 - bh} width={bw} height={bh} rx={bw / 2}
+            fill={isLast ? C.accent : C.ink16} />;
+        })}
+      </svg>
+    );
+  }
+
+  if (pts.length < 2) return <span style={{ display: "inline-block", width: w, height: h }} />;
+  const vals = pts.map((p) => p.v);
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  const span = hi - lo || 1;
+  const x = (i) => (i / xs) * (w - 4) + 2;
+  const y = (v) => h - 3 - ((v - lo) / span) * (h - 6);
+  let dPath = "", last = null, lastI = 0;
+  data.forEach((p, i) => {
+    if (p.v == null) return;
+    dPath += (dPath ? " L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1);
+    last = p.v; lastI = i;
+  });
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true" style={{ display: "block", overflow: "visible" }}>
+      <path d={dPath} fill="none" stroke={C.ink16} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={x(lastI)} cy={y(last)} r="2.5" fill={C.accent} stroke={C.paper} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function StatTile({ label, value, unit, delta, deltaLabel, data, goal = "up", kind = "number" }) {
+  const good = delta == null ? null : goal === "flat" ? null : goal === "down" ? delta < 0 : delta > 0;
+  return (
+    <div style={{ flex: "1 1 0", minWidth: 128, padding: "16px 0 4px" }}>
+      <div style={{ fontFamily: SANS, fontSize: 11, letterSpacing: "0.09em", textTransform: "uppercase", color: C.ink28 }}>{label}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 5, marginTop: 9 }}>
+        <span style={{ fontFamily: SANS, fontSize: 27, fontWeight: 500, letterSpacing: "-0.02em", color: C.ink, lineHeight: 1 }}>{value}</span>
+        {unit && <span style={{ fontFamily: SANS, fontSize: 12.5, color: C.ink28 }}>{unit}</span>}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 10, minHeight: 26 }}>
+        <span style={{ fontFamily: SANS, fontSize: 11.5, color: good == null ? C.ink28 : good ? C.accent : C.ink45, whiteSpace: "nowrap" }}>
+          {delta == null ? "" : `${delta > 0 ? "+" : ""}${compact(delta)} ${deltaLabel || ""}`}
+        </span>
+        {data && <Sparkline data={data} kind={kind} />}
+      </div>
+    </div>
+  );
+}
+
+function Trend({ data, label, unit, kind, height = 150 }) {
+  const [hover, setHover] = useState(null);
+  const wrapRef = useRef(null);
+  const [w, setW] = useState(560);
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const fit = () => setW(Math.max(180, el.getBoundingClientRect().width));
+    fit();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const pts = data.filter((p) => p.v != null);
+  const h = height, padL = 4, padR = 46, padT = 12, padB = 22;
+  if (pts.length < 2) {
+    return <div ref={wrapRef}><Empty>Not enough logged yet to draw a trend. A week or so will do it.</Empty></div>;
+  }
+  const bars = kind === "toggle" || kind === "scale";
+  const barMax = kind === "toggle" ? 1 : 5;
+  const vals = pts.map((p) => p.v);
+  const lo = bars ? 0 : Math.min(...vals), hi = bars ? barMax : Math.max(...vals);
+  const span = hi - lo || Math.max(1, Math.abs(hi) * 0.1);
+  const y0 = bars ? 0 : lo - span * 0.12, y1 = bars ? barMax * 1.05 : hi + span * 0.12;
+  const xs = data.length - 1;
+  const x = (i) => padL + (i / xs) * (w - padL - padR);
+  const y = (v) => padT + (1 - (v - y0) / (y1 - y0)) * (h - padT - padB);
+  /* cap bar thickness and let the leftover be air, per the mark spec */
+  const barW = Math.max(2, Math.min(24, ((w - padL - padR) / data.length) - 2));
+
+  let line = "", area = "", firstI = null, lastI = 0, lastV = null;
+  data.forEach((p, i) => {
+    if (p.v == null) return;
+    if (firstI == null) firstI = i;
+    line += (line ? " L" : "M") + x(i).toFixed(1) + " " + y(p.v).toFixed(1);
+    lastI = i; lastV = p.v;
+  });
+  area = line + ` L${x(lastI).toFixed(1)} ${(h - padB).toFixed(1)} L${x(firstI).toFixed(1)} ${(h - padB).toFixed(1)} Z`;
+  const ticks = [y1, (y0 + y1) / 2, y0];
+
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const rel = ((e.clientX - r.left) / r.width) * w;
+    let best = null, bd = 1e9;
+    data.forEach((p, i) => { if (p.v == null) return; const d = Math.abs(x(i) - rel); if (d < bd) { bd = d; best = { ...p, i }; } });
+    setHover(best);
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img"
+        aria-label={`${label} over ${data.length} days`}
+        onPointerMove={onMove} onPointerLeave={() => setHover(null)}
+        style={{ display: "block", touchAction: "pan-y" }}>
+        {(bars ? [barMax, barMax / 2, 0] : ticks).map((t, i) => (
+          <g key={i}>
+            <line x1={padL} x2={w - padR} y1={y(t)} y2={y(t)} stroke={C.lineSoft} strokeWidth="1" />
+            <text x={w - padR + 8} y={y(t) + 3.5} style={{ fontFamily: SANS, fontSize: 10.5, fontVariantNumeric: "tabular-nums" }} fill={C.ink16}>
+              {compact(t, kind)}
+            </text>
+          </g>
+        ))}
+        {bars ? data.map((p, i) => {
+          if (p.v == null) return null;
+          const val = Math.max(0, Math.min(barMax, p.v));
+          const top = y(val), base = y(0);
+          const bh = Math.max(2, base - top);
+          return <rect key={i} x={x(i) - barW / 2} y={base - bh} width={barW} height={bh}
+            rx={Math.min(4, barW / 2)} fill={C.accent} opacity={i === lastI ? 1 : 0.55} />;
+        }) : (
+          <>
+            <path d={area} fill={C.accent} opacity="0.1" />
+            <path d={line} fill="none" stroke={C.accent} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+          </>
+        )}
+        {hover && (
+          <g>
+            <line x1={x(hover.i)} x2={x(hover.i)} y1={padT} y2={h - padB} stroke={C.ink16} strokeWidth="1" />
+            <circle cx={x(hover.i)} cy={y(hover.v)} r="4" fill={C.accent} stroke={C.paper} strokeWidth="2" />
+          </g>
+        )}
+        {!bars && <circle cx={x(lastI)} cy={y(lastV)} r="4" fill={C.accent} stroke={C.paper} strokeWidth="2" />}
+        <text x={x(lastI) + 9} y={y(lastV) + 4} style={{ fontFamily: SANS, fontSize: 12, fontWeight: 500 }} fill={C.ink70}>
+          {compact(lastV, kind)}
+        </text>
+        <text x={padL} y={h - 5} style={{ fontFamily: SANS, fontSize: 10.5 }} fill={C.ink16}>{midDate(data[0].d)}</text>
+        <text x={w - padR} y={h - 5} textAnchor="end" style={{ fontFamily: SANS, fontSize: 10.5 }} fill={C.ink16}>{midDate(data[data.length - 1].d)}</text>
+      </svg>
+      {hover && (
+        <div style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", fontFamily: SANS, fontSize: 11.5, color: C.ink70 }}>
+          {longDate(hover.d)} · {compact(hover.v, kind)}{unit ? " " + unit : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── model access ─────────────────────────────────────────── */
 /* The key lives on this device and goes nowhere but api.anthropic.com. Direct
    browser calls need the dangerous-direct-browser-access header; "bring your
@@ -478,6 +757,7 @@ const emptyDay = (date) => ({
   wife: { listen: "", understood: "", leak: "", appreciate: "", easier: "" },
   money: {}, home: {}, play: {}, friendship: {}, work: {}, mind: {}, character: {},
   areaToday: {},
+  metrics: {},
   daughter: { present: "", laugh: "", taught: "", memory: "", ritual: "" },
   faith: { reading: "", stood: "", prayer: "", gratitude: "", question: "", action: "" },
   body: { sleep: "", training: "", nutrition: "", energy: "", recovery: "", alcohol: "", stress: "" },
@@ -691,9 +971,9 @@ function Section({ label, children, note, top = 34 }) {
   );
 }
 
-function Tap({ children, onClick, style, aria, disabled }) {
+function Tap({ children, onClick, style, aria, disabled, className }) {
   return (
-    <button className="tj-tap" onClick={onClick} aria-label={aria} disabled={disabled} style={style}>
+    <button className={"tj-tap" + (className ? " " + className : "")} onClick={onClick} aria-label={aria} disabled={disabled} style={style}>
       {children}
     </button>
   );
@@ -1008,9 +1288,9 @@ const JOURNAL_PROMPTS = [
 function Journal({ journal, setJournal, date, setDate, dates, focus, setFocus, ink, setInk, index, inkDates, core }) {
   const [text, setText] = useState("");
   const [prompt, setPrompt] = useState(null);
-  const [browsing, setBrowsing] = useState(false);
-  const [tab, setTab] = useState("type");
+  const [tab, setTab] = useState("write");
   const [full, setFull] = useState(false);
+  const [openId, setOpenId] = useState(null);
   const entries = (journal && journal.entries) || [];
 
   useEffect(() => { setText(""); setPrompt(null); }, [date]);
@@ -1018,101 +1298,143 @@ function Journal({ journal, setJournal, date, setDate, dates, focus, setFocus, i
   const save = () => {
     if (!text.trim()) { setFocus(false); return; }
     setJournal({ ...journal, date, entries: [{ id: uid(), ts: Date.now(), prompt, text: text.trim() }, ...entries] });
-    setText("");
-    setPrompt(null);
-    setFocus(false);
+    setText(""); setPrompt(null); setFocus(false);
   };
 
+  /* counted, not decorative: days written, run of consecutive days, words kept */
+  const stats = useMemo(() => {
+    const days = Array.from(new Set(index.filter((r) => r.sec === "journal").map((r) => r.d))).sort();
+    const words = index.filter((r) => r.sec === "journal").reduce((a, r) => a + (r.t || "").split(/\s+/).filter(Boolean).length, 0);
+    let run = 0;
+    for (let i = 0; ; i++) {
+      const k = addDays(date, -i);
+      if (days.includes(k)) run += 1;
+      else if (i > 0) break;
+      else if (!days.includes(k)) break;
+    }
+    return { days: days.length, run, words };
+  }, [index, date]);
+
+  /* the writing surface, given room */
+  const composer = (
+    <div className={focus ? "" : "tj-card"} style={{ marginTop: focus ? 0 : 18 }}>
+      {focus && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 18 }}>
+          <Eyebrow>{longDate(date)}</Eyebrow>
+          <Tap onClick={save} style={{ fontFamily: SANS, fontSize: 14, minHeight: 44, color: text.trim() ? C.accent : C.ink45, padding: "6px 0 6px 12px" }}>
+            {text.trim() ? "Save entry" : "Done"}
+          </Tap>
+        </div>
+      )}
+      {prompt && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 14 }}>
+          <span style={{ color: C.accent, fontSize: 15, lineHeight: "30px", opacity: 0.55 }}>—</span>
+          <div style={{ flex: 1, fontFamily: SERIF, fontSize: 21, fontWeight: 300, fontStyle: "italic", color: C.ink70, letterSpacing: "-0.016em", lineHeight: 1.4 }}>{prompt}</div>
+          <Tap onClick={() => setPrompt(null)} aria="Clear prompt" style={{ color: C.ink16, fontSize: 14, padding: "6px 0 6px 8px" }}>×</Tap>
+        </div>
+      )}
+      <Grow serif size={19} minH={focus ? 340 : 132} value={text} onChange={setText} onFocus={() => setFocus(true)}
+        placeholder="Start anywhere." ariaLabel="Journal entry" style={{ lineHeight: 1.72 }} />
+      {!focus && text.trim() && (
+        <Tap onClick={save} style={{ fontFamily: SANS, fontSize: 13.5, color: C.accent, padding: "14px 0 2px", minHeight: 44 }}>Save entry</Tap>
+      )}
+    </div>
+  );
+
+  /* One tree, always. Returning a different tree for focus mode remounted the
+     textarea the instant it was tapped, which dropped the keyboard and sent the
+     first words nowhere. The composer keeps its slot; its siblings come and go. */
   return (
     <div>
+      {!focus && <Title sub="Whatever is actually on your mind. It is kept, counted, and read back to you.">Journal</Title>}
+
+      {!focus && <Rule />}
       {!focus && (
-        <>
-          <Title sub={longDate(date)}>Journal</Title>
-          <Segment options={[{ id: "type", label: "Type" }, { id: "write", label: "Write" }, { id: "history", label: "History" }]} value={tab} onChange={setTab} />
-          <Rule style={{ marginTop: 6, marginBottom: 20 }} />
-        </>
-      )}
-
-      {tab === "history" && !focus && (
-        <div className="tj-reveal">
-          <History index={index} inkDates={inkDates} core={core} setDate={setDate} date={date} />
+        <div className="tj-kpi">
+          <StatTile label="Days written" value={String(stats.days)} />
+          <StatTile label="Current run" value={String(stats.run)} unit={stats.run === 1 ? "day" : "days"} />
+          <StatTile label="Words kept" value={stats.words >= 1000 ? (stats.words / 1000).toFixed(1) + "K" : String(stats.words)} />
         </div>
       )}
 
-      {tab === "write" && !focus && (
-        <div className="tj-reveal">
-          <Ink value={ink.journal} onChange={(v) => setInk("journal", v)} height={430} full={full} onToggleFull={() => setFull((f) => !f)} label="Journal notebook" />
-          <Note>Handwriting is kept as written. Nothing is converted to text.</Note>
+      {!focus && (
+        <div style={{ paddingTop: 22 }}>
+          <Segment options={[{ id: "write", label: "Write" }, { id: "draw", label: "By hand" }, { id: "history", label: "History" }]} value={tab} onChange={setTab} />
+          <Rule style={{ marginTop: 6 }} />
         </div>
       )}
 
-      {tab === "type" && !focus && (
-        <>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 18px", paddingBottom: 16 }}>
-            {JOURNAL_PROMPTS.map((p) => (
-              <Tap key={p} onClick={() => { setPrompt(p); setFocus(true); }}
-                style={{ fontFamily: SANS, fontSize: 12.5, color: prompt === p ? C.accent : C.ink45, padding: "7px 0", textAlign: "left", lineHeight: 1.4 }}>
-                {p}
-              </Tap>
-            ))}
-          </div>
-          <Rule />
-        </>
-      )}
+      {/* the composer holds this slot in every state, so it never remounts */}
+      {(focus || tab === "write") && composer}
 
-      {(tab === "type" || focus) && (
-      <div style={{ paddingTop: focus ? 4 : 22 }}>
-        {focus && (
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingBottom: 20 }}>
-            <Eyebrow>{longDate(date)}</Eyebrow>
-            <Tap onClick={save} style={{ fontFamily: SANS, fontSize: 14, color: text.trim() ? C.accent : C.ink45, padding: "6px 0 6px 12px" }}>
-              {text.trim() ? "Save entry" : "Done"}
-            </Tap>
-          </div>
-        )}
-        {prompt && (
-          <div style={{ fontFamily: SERIF, fontSize: 21, fontWeight: 300, fontStyle: "italic", color: C.ink70, marginBottom: 14, letterSpacing: "-0.016em" }}>{prompt}</div>
-        )}
-        <Grow serif size={19} minH={focus ? 320 : 110} value={text} onChange={setText} onFocus={() => setFocus(true)}
-          placeholder="Start anywhere." ariaLabel="Journal entry" style={{ lineHeight: 1.72 }} />
-        {!focus && text.trim() && (
-          <Tap onClick={save} style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "12px 0" }}>Save entry</Tap>
-        )}
-      </div>
-      )}
-
-      {!focus && tab === "type" && (
-        <>
-          {entries.length > 0 && (
-            <Section label="Today's entries">
-              {entries.map((e) => (
-                <div key={e.id} style={{ padding: "20px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
-                  {e.prompt && <Eyebrow style={{ marginBottom: 8 }}>{e.prompt}</Eyebrow>}
-                  <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 300, color: C.ink70, lineHeight: 1.68, whiteSpace: "pre-wrap" }}>{e.text}</div>
-                  <Tap onClick={() => setJournal({ ...journal, entries: entries.filter((x) => x.id !== e.id) })}
-                    style={{ fontFamily: SANS, fontSize: 11.5, color: C.ink16, padding: "12px 0 0", letterSpacing: "0.05em" }}>Delete</Tap>
-                </div>
-              ))}
+      <div className="tj-reveal">
+        {!focus && tab === "write" && (
+          <>
+            <Section label="Or start from a question" note="tap one">
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 10, paddingTop: 16 }}>
+                {JOURNAL_PROMPTS.map((q) => (
+                  <Tap key={q} onClick={() => { setPrompt(q); setFocus(true); }}
+                    className="tj-prompt"
+                    style={{ textAlign: "left", padding: "15px 16px", minHeight: 64,
+                      fontFamily: SERIF, fontSize: 16.5, fontWeight: 300, color: C.ink70, lineHeight: 1.4 }}>
+                    {q}
+                  </Tap>
+                ))}
+              </div>
             </Section>
-          )}
-          <Section label="Earlier">
-            {!browsing ? (
-              <Ghost onClick={() => setBrowsing(true)}><span style={{ color: C.accent, marginRight: 8 }}>—</span>Browse past entries</Ghost>
-            ) : (
-              <div className="tj-reveal" style={{ paddingTop: 6 }}>
-                {dates.filter((d) => d !== date).length === 0 && <Empty>Nothing earlier yet.</Empty>}
-                {dates.filter((d) => d !== date).map((d) => (
-                  <Tap key={d} onClick={() => { setDate(d); setBrowsing(false); }}
-                    style={{ display: "flex", width: "100%", justifyContent: "space-between", padding: "16px 0", borderBottom: `1px solid ${C.lineSoft}`, fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, color: C.ink70 }}>
+
+            {entries.length > 0 && (
+              <Section label="Today" note={`${entries.length} ${entries.length === 1 ? "entry" : "entries"}`}>
+                {entries.map((e) => {
+                  const isOpen = openId === e.id;
+                  const preview = e.text.length > 150 && !isOpen ? e.text.slice(0, 150).trimEnd() + "…" : e.text;
+                  return (
+                    <div key={e.id} style={{ padding: "20px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                        {e.prompt ? <Eyebrow style={{ color: C.ink28 }}>{e.prompt}</Eyebrow> : <Mark kind="you" />}
+                        <span style={{ fontFamily: SANS, fontSize: 10.5, color: C.ink16, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                          {new Date(e.ts).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <Tap onClick={() => setOpenId(isOpen ? null : e.id)}
+                        style={{ display: "block", width: "100%", textAlign: "left", paddingTop: 10 }}>
+                        <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 300, color: C.ink70, lineHeight: 1.68, whiteSpace: "pre-wrap" }}>{preview}</div>
+                      </Tap>
+                      <Tap onClick={() => setJournal({ ...journal, entries: entries.filter((x) => x.id !== e.id) })}
+                        style={{ fontFamily: SANS, fontSize: 11.5, color: C.ink16, padding: "14px 0 0", letterSpacing: "0.05em", minHeight: 44 }}>Delete</Tap>
+                    </div>
+                  );
+                })}
+              </Section>
+            )}
+
+            {dates.filter((d) => d !== date).length > 0 && (
+              <Section label="Earlier">
+                {dates.filter((d) => d !== date).slice(0, 10).map((d) => (
+                  <Tap key={d} onClick={() => setDate(d)}
+                    style={{ display: "flex", width: "100%", justifyContent: "space-between", alignItems: "center", padding: "16px 0", minHeight: 44, borderBottom: `1px solid ${C.lineSoft}`, fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, color: C.ink70 }}>
                     <span>{longDate(d)}</span>
                     <span style={{ color: C.ink16, fontSize: 14 }}>›</span>
                   </Tap>
                 ))}
-              </div>
+              </Section>
             )}
-          </Section>
-        </>
-      )}
+          </>
+        )}
+
+        {!focus && tab === "draw" && (
+          <div style={{ paddingTop: 18 }}>
+            <Ink value={ink.journal} onChange={(v) => setInk("journal", v)} height={430} full={full} onToggleFull={() => setFull((f) => !f)} label="Journal notebook" />
+            <Note>Handwriting is kept as written. Nothing is converted to text.</Note>
+          </div>
+        )}
+
+        {!focus && tab === "history" && (
+          <div style={{ paddingTop: 8 }}>
+            <History index={index} inkDates={inkDates} core={core} setDate={setDate} date={date} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1822,14 +2144,49 @@ function LevelCheck({ core, setC, index, date }) {
 /* ══════════ AREAS ═════════════════════════════════════════ */
 const STATE_LABEL = { focus: "in focus", maintain: "maintaining", dormant: "dormant" };
 
-function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, open, setOpen }) {
+/* the input half — today's numbers, typed the way each metric wants */
+function MetricLog({ metrics, values, onSet, date }) {
+  return (
+    <div>
+      {metrics.map((m, i) => {
+        const v = values[m.id];
+        return (
+          <div key={m.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16,
+            padding: "15px 0", borderBottom: i < metrics.length - 1 ? `1px solid ${C.lineSoft}` : "none", minHeight: 44 }}>
+            <span style={{ fontFamily: SANS, fontSize: 14.5, color: C.ink70, flex: 1 }}>
+              {m.label}{m.unit && m.kind !== "currency" ? ` · ${m.unit}` : ""}
+            </span>
+            {m.kind === "scale" ? (
+              <Dots value={v || 0} onChange={(n) => onSet(m.id, n)} />
+            ) : m.kind === "toggle" ? (
+              <Tap onClick={() => onSet(m.id, !v)} aria={m.label}
+                style={{ fontFamily: SANS, fontSize: 13, padding: "10px 0 10px 12px", color: v ? C.accent : C.ink28 }}>
+                {v ? "Done" : "Not yet"}
+              </Tap>
+            ) : (
+              <input
+                type="number" inputMode="decimal" step={m.step || 1}
+                className="tj-num" aria-label={`${m.label} for ${longDate(date)}`}
+                value={v == null ? "" : v}
+                onChange={(e) => onSet(m.id, e.target.value === "" ? "" : Number(e.target.value))}
+                placeholder={m.kind === "currency" ? "$" : "—"}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, open, setOpen, series }) {
   const areas = liveAreas(core);
   const focus = focusAreas(core);
 
   if (open) {
     const area = areas.find((a) => a.id === open);
     if (area) return <Area area={area} core={core} setC={setC} day={day} setD={setD} index={index}
-      lib={lib} setLib={setLib} ai={ai} aiWhy={aiWhy} date={date} back={() => setOpen(null)} />;
+      lib={lib} setLib={setLib} ai={ai} aiWhy={aiWhy} date={date} back={() => setOpen(null)} series={series} />;
   }
 
   const setState = (id, state) => {
@@ -1865,6 +2222,7 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
           <Section key={g} label={g} top={30}>
             {list.map((a, i) => {
               const n = areaRows(index, a.id).length;
+              const head = metricsOf(a)[0];
               return (
                 <div key={a.id} style={{ borderBottom: i < list.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
                   <Tap onClick={() => setOpen(a.id)}
@@ -1877,7 +2235,8 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
                     </span>
                     <span style={{ fontFamily: SANS, fontSize: 11, color: C.ink16, minWidth: 26, textAlign: "right" }}>{n || ""}</span>
                   </Tap>
-                  <div style={{ display: "flex", gap: 18, paddingBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, paddingBottom: 10 }}>
+                    <div style={{ display: "flex", gap: 18 }}>
                     {["focus", "maintain", "dormant"].map((v) => {
                       const blocked = v === "focus" && focus.length >= MAX_FOCUS && a.state !== "focus";
                       return (
@@ -1888,6 +2247,8 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
                         </Tap>
                       );
                     })}
+                    </div>
+                    {head && <Sparkline data={seriesOf(series, head.id, 30, date)} kind={head.kind} />}
                   </div>
                 </div>
               );
@@ -1901,26 +2262,39 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
   );
 }
 
-function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, back }) {
+function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, back, series }) {
   const [thread, setThread] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [range, setRange] = useState(30);
+  const [metricId, setMetricId] = useState(null);
   const rows = useMemo(() => areaRows(index, area.id), [index, area.id]);
   const prompts = AREA_PROMPTS[area.day] || [];
-  const themes = useMemo(() => THEMES.filter((t) => t.areaId === area.id), [area.id]);
-  const counted = useMemo(() => {
-    const words = themes.flatMap((t) => t.words);
-    const days = new Set();
-    for (const r of rows) if (words.some((w) => ((r.q || "") + " " + (r.t || "")).toLowerCase().includes(w))) days.add(r.d);
-    return days.size;
-  }, [rows, themes]);
+  const metrics = metricsOf(area);
+  const shown = metrics.find((m) => m.id === metricId) || metrics[0];
+
+  const dayMetrics = (day && day.metrics) || {};
+  const setMetric = (id, v) => setD(["metrics", id], v);
 
   const set = (k, v) => setC("areas", core.areas.map((a) => (a.id === area.id ? { ...a, [k]: v } : a)));
+
+  /* value now, and the change against the same span before it */
+  const stat = (m) => {
+    const s60 = seriesOf(series, m.id, range * 2, date);
+    const recent = s60.slice(range).filter((p) => p.v != null);
+    const prior = s60.slice(0, range).filter((p) => p.v != null);
+    const agg = (xs) => (xs.length ? xs.reduce((a, b) => a + b.v, 0) / xs.length : null);
+    const latest = m.kind === "currency" ? (recent.length ? recent[recent.length - 1].v : null) : agg(recent);
+    const before = m.kind === "currency" ? (prior.length ? prior[prior.length - 1].v : null) : agg(prior);
+    const delta = latest != null && before != null ? Math.round((latest - before) * 10) / 10 : null;
+    return { latest, delta, data: s60.slice(range) };
+  };
 
   const readBack = async () => {
     setBusy(true); setThread(null);
     try {
+      const nums = metrics.map((m) => { const st = stat(m); return st.latest == null ? null : `${m.label}: ${compact(st.latest, m.kind)}${m.unit && m.kind !== "currency" ? " " + m.unit : ""} over ${range} days`; }).filter(Boolean).join("; ");
       const out = await askModel({
-        messages: [{ role: "user", content: `These are my journal entries about ${area.label.toLowerCase()}, oldest first.\n\n${digest(rows, 50)}\n\nIn under 120 words, tell me what you notice across these. Not a summary. A pattern I might not see, or a contradiction between what I say about this area and what I actually do. If there isn't enough here to say anything honest, say that instead of reaching.` }],
+        messages: [{ role: "user", content: `These are my journal entries about ${area.label.toLowerCase()}, oldest first.\n\n${digest(rows, 50)}\n\n${nums ? `What I have actually logged: ${nums}.\n\n` : ""}In under 120 words, tell me what you notice. Not a summary. A pattern I might not see, or a contradiction between what I say about this area and what the numbers show. If there isn't enough here to say anything honest, say that instead of reaching.` }],
         maxTokens: 400,
       });
       setThread(out);
@@ -1928,16 +2302,84 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
     setBusy(false);
   };
 
+  const head = shown ? stat(shown) : null;
+
   return (
     <div>
-      <Tap onClick={back} style={{ fontFamily: SANS, fontSize: 13, color: C.ink45, padding: "14px 0 4px" }}>‹ Areas</Tap>
-      <Title sub={area.line}>{area.label}</Title>
+      <Tap onClick={back} style={{ fontFamily: SANS, fontSize: 13, color: C.ink45, padding: "14px 0 4px", minHeight: 44 }}>‹ Areas</Tap>
 
-      <Section label="Season" note={STATE_LABEL[area.state]} top={16}>
-        <div style={{ display: "flex", gap: 20, paddingTop: 12 }}>
+      <div style={{ paddingTop: 4, paddingBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 14 }}>
+          <h1 style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 38, lineHeight: 1.06, letterSpacing: "-0.024em", color: C.ink, margin: 0 }}>{area.label}</h1>
+          <span style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase", color: area.state === "focus" ? C.accent : C.ink16, whiteSpace: "nowrap" }}>
+            {STATE_LABEL[area.state]}
+          </span>
+        </div>
+        <div style={{ fontFamily: SANS, fontSize: 14.5, color: C.ink45, marginTop: 10, lineHeight: 1.5 }}>{area.line}</div>
+      </div>
+
+      {metrics.length > 0 && (
+        <>
+          <Rule />
+          <div className="tj-kpi">
+            {metrics.slice(0, 4).map((m) => {
+              const st = stat(m);
+              /* a toggle's headline is how many days it happened, not "Yes" */
+              const done = m.kind === "toggle" ? st.data.filter((p) => p.v).length : null;
+              return (
+                <StatTile key={m.id} label={m.label} kind={m.kind}
+                  value={done != null ? String(done) : compact(st.latest, m.kind)}
+                  unit={done != null ? `of ${range} days` : m.kind === "currency" ? "" : m.unit}
+                  delta={done != null ? null : st.delta} deltaLabel={`vs prior ${range}d`}
+                  data={st.data} goal={m.goal} />
+              );
+            })}
+          </div>
+
+          <Section label="Trend" note={`${range} days`} top={26}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, paddingTop: 14, flexWrap: "wrap" }}>
+              <div className="tj-range">
+                {metrics.map((m) => (
+                  <Tap key={m.id} onClick={() => setMetricId(m.id)}
+                    style={{ fontFamily: SANS, fontSize: 12.5, padding: "10px 0", minHeight: 44,
+                      color: shown && shown.id === m.id ? C.accent : C.ink28, transition: "color .3s" }}>
+                    {m.label}
+                  </Tap>
+                ))}
+              </div>
+              <div className="tj-range">
+                {[30, 90, 365].map((r) => (
+                  <Tap key={r} onClick={() => setRange(r)}
+                    style={{ fontFamily: SANS, fontSize: 12, padding: "10px 0", minHeight: 44,
+                      color: range === r ? C.accent : C.ink16 }}>
+                    {r === 365 ? "1y" : r + "d"}
+                  </Tap>
+                ))}
+              </div>
+            </div>
+            {shown && (
+              <div style={{ paddingTop: 6 }}>
+                <Mark kind="counted" detail={shown.label} />
+                <div style={{ paddingTop: 14 }}>
+                  <Trend data={seriesOf(series, shown.id, range, date)} label={shown.label} unit={shown.unit} kind={shown.kind} />
+                </div>
+              </div>
+            )}
+          </Section>
+
+          <Section label="Log today" note={longDate(date)}>
+            <div style={{ paddingTop: 8 }}>
+              <MetricLog metrics={metrics} values={dayMetrics} onSet={setMetric} date={date} />
+            </div>
+          </Section>
+        </>
+      )}
+
+      <Section label="Season" note={STATE_LABEL[area.state]}>
+        <div style={{ display: "flex", gap: 22, paddingTop: 10 }}>
           {["focus", "maintain", "dormant"].map((v) => (
             <Tap key={v} onClick={() => set("state", v)}
-              style={{ fontFamily: SANS, fontSize: 13, padding: "10px 0", color: area.state === v ? C.accent : C.ink28 }}>
+              style={{ fontFamily: SANS, fontSize: 13, padding: "12px 0", minHeight: 44, color: area.state === v ? C.accent : C.ink28 }}>
               {STATE_LABEL[v]}
             </Tap>
           ))}
@@ -1970,19 +2412,14 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
       )}
 
       <Section label="What the record says" note={`${rows.length} ${rows.length === 1 ? "entry" : "entries"}`}>
-        {rows.length > 0 && (
-          <div style={{ paddingTop: 16 }}>
-            <Mark kind="counted" detail={`${counted} ${counted === 1 ? "day" : "days"} you wrote about this`} />
-          </div>
-        )}
         {thread ? (
           <div className="tj-reveal" style={{ paddingTop: 18 }}>
             <Mark kind="generated" detail={`from ${rows.length} entries`} />
             <div style={{ fontFamily: SERIF, fontSize: 19, fontWeight: 300, color: C.ink, lineHeight: 1.62, marginTop: 14, whiteSpace: "pre-wrap" }}>{thread}</div>
             <div style={{ display: "flex", gap: 22, paddingTop: 18 }}>
               <Tap onClick={() => { setLib("kb", [{ id: uid(), type: "Lesson", text: thread, created: keyOf(new Date()), src: "generated" }, ...lib.kb]); setThread(null); }}
-                style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "10px 0" }}>Keep this</Tap>
-              <Tap onClick={() => setThread(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "10px 0" }}>Dismiss</Tap>
+                style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "10px 0", minHeight: 44 }}>Keep this</Tap>
+              <Tap onClick={() => setThread(null)} style={{ fontFamily: SANS, fontSize: 13, color: C.ink28, padding: "10px 0", minHeight: 44 }}>Dismiss</Tap>
             </div>
           </div>
         ) : busy ? <Working /> : rows.length < 5 ? (
@@ -1992,7 +2429,6 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
         )}
       </Section>
 
-      {/* the two sections that used to own a nav slot now live where they belong */}
       {area.id === "mind" && (
         <Section label="Library" note="reading tied to an outcome" top={34}>
           <Library lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} embedded />
@@ -2286,6 +2722,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [areaOpen, setAreaOpen] = useState(null);
+  const [series, setSeries] = useState({});
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
   const [toast, setToast] = useState("");
@@ -2308,6 +2745,7 @@ export default function App() {
         setTalk(t || { messages: [] });
         setApiKey((await S.get("tj:apikey")) || "");
         setIndex(await readIndex(4));
+        setSeries(await readMetrics(12));
         setReady(true);
       } catch (e) {
         setStorageError(true);
@@ -2418,6 +2856,9 @@ export default function App() {
     const p = idxPending.current;
     if (!p) return;
     idxPending.current = null;
+    writeMetrics(p.date, (p.day || {}).metrics).then(() => {
+      setSeries((cur) => ({ ...cur, [p.date]: { ...(p.day || {}).metrics } }));
+    }).catch(() => {});
     writeIndex(p.date, p.day, p.journal).then(() => {
       const rows = dayToIndexRows(p.date, p.day, p.journal);
       setIndex((cur) => [...cur.filter((r) => r.d !== p.date), ...rows].sort((a, b) => (a.d < b.d ? -1 : 1)));
@@ -2505,6 +2946,7 @@ export default function App() {
         const m = await S.get("tj:month:" + moKey);
         setMonth(m && m.id === moKey ? m : { id: moKey });
         setIndex(await readAllIndex()); // a restore brings back years, not a window
+        setSeries(await readMetrics(60));
         const k = await S.get("tj:ink:" + date);
         setInkState(k && k.date === date ? k : { date });
         const jk = await S.list("tj:journal:");
@@ -2552,7 +2994,7 @@ export default function App() {
 
   const screens = {
     today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />,
-    areas: <Areas core={core} setC={setC} day={day} setD={setD} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} date={date} open={areaOpen} setOpen={setAreaOpen} />,
+    areas: <Areas core={core} setC={setC} day={day} setD={setD} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} date={date} open={areaOpen} setOpen={setAreaOpen} series={series} />,
     journal: <Journal journal={journal} setJournal={setJournal} date={date} setDate={setDate} dates={journalDates} focus={focus} setFocus={setFocus} ink={ink} setInk={setInk} index={index} inkDates={inkDates} core={core} />,
     review: <Review lib={lib} setLib={setLib} index={index} core={core} setC={setC} date={date} ai={aiOn} aiWhy={aiWhy} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
     talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} aiWhy={aiWhy} />,
@@ -2689,6 +3131,30 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
   border: none; border-bottom: 1px solid var(--line); padding: 4px 0; outline: none;
 }
 .tj-date:focus { border-bottom-color: var(--accent); }
+
+.tj-num {
+  font-family: ${SANS}; font-size: 17px; font-weight: 500; color: var(--ink);
+  background: transparent; border: none; border-bottom: 1px solid var(--line);
+  padding: 6px 0; outline: none; width: 92px; text-align: right;
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+}
+.tj-num::-webkit-outer-spin-button, .tj-num::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.tj-num:focus { border-bottom-color: var(--accent); }
+.tj-num::placeholder { color: var(--ink16); font-weight: 400; }
+
+/* the dense half: cards that group data without shouting */
+.tj-card {
+  background: var(--raise); border: 1px solid var(--lineSoft); border-radius: 6px;
+  padding: 18px 20px; transition: background .6s ease, border-color .6s ease;
+}
+.tj-kpi { display: flex; flex-wrap: wrap; gap: 0 28px; }
+.tj-range { display: flex; gap: 16px; }
+
+.tj-prompt {
+  background: var(--raise); border: 1px solid var(--line); border-radius: 6px;
+  transition: border-color .3s ease, background .6s ease;
+}
+@media (hover: hover) { .tj-prompt:hover { border-color: var(--accent); } }
 
 .tj-tap { background: none; border: none; padding: 0; margin: 0; cursor: pointer; font: inherit; color: inherit; transition: opacity .2s ease, transform .2s ease; }
 .tj-tap:active { opacity: .55; transform: scale(.985); }

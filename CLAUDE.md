@@ -43,6 +43,21 @@ Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest),
 
 `day.body`, `day.wife`, `day.daughter` and `day.faith` keep their existing shape and paths. Areas are a view over them, not a migration of them — which is why nothing written before the restructure had to move.
 
+## Metrics and charts
+
+Areas carry structured data as well as prose. Each area's `metrics` in `AREA_DEFS` define what is tracked: `kind` picks the input and the mark, `goal` says which direction is good so a delta can be coloured honestly rather than "up is green", and the first metric is the area's headline.
+
+Values live on `day.metrics` and are mirrored into a month-sharded series (`tj:met:YYYY-MM`) because trends need numbers across days, which the text index cannot answer.
+
+Chart rules, and they are not stylistic:
+
+- **Form follows the data's job.** Continuous values (sleep, weight, money) are a trend: 2px line, 10% area wash, one end-dot with a surface ring. Binary and 1–5 ordinal values are *magnitude*, so they are bars from a baseline. Drawn as lines they produce sawtooth that means nothing — this was shipped wrong once.
+- **One series per chart**, so there is no legend and no categorical palette. The heading says what is plotted.
+- **Label the endpoint only.** Never a number on every point.
+- Gridlines hairline and recessive; text wears ink tokens, never the accent.
+- Figures are **sans**, not the serif display face — a serif hero number reads as decoration.
+- A toggle's headline is how many days it happened, not its latest value.
+
 ## Priority order when tradeoffs appear
 
 1. Never lose written data
