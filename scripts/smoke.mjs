@@ -274,7 +274,7 @@ if (await showRest.count()) { await showRest.click(); await page.waitForTimeout(
 const morning = (await page.textContent(".tj-main")) || "";
 ok("the morning offers the sheet", /The sheet/.test(morning) && /already true/.test(morning));
 ok("the sheet offers type or by hand", /By hand/.test(morning));
-ok("the sheet lists the non-negotiable actions", /What I do regardless/.test(morning));
+ok("the sheet lists the non-negotiable actions", /Non-negotiables/.test(morning));
 
 const goal1 = page.locator('[aria-label="Life goal 1"]');
 if (await goal1.count()) {

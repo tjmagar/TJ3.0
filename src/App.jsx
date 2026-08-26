@@ -323,6 +323,7 @@ function dayToIndexRows(dateKey, day, journal) {
     push("morning", "Looking forward to", am.excitement);
     push("marriage", "How I show up for my people today", am.relationship);
     push("morning", "The thing I'm tempted to avoid", am.hard);
+    push("morning", "This morning's question", am.question);
     push("character", "Today's declaration", am.declaration);
     (day.morning || []).forEach((a) => push("morning", a.q, a.a));
     (day.evening || []).forEach((a) => push("evening", a.q, a.a));
@@ -769,7 +770,7 @@ const emptyDay = (date) => ({
   evening: [],
   am: { energy: "", headspace: "", gratitude: ["", "", ""], affId: "", affAccepted: false, affEvidence: "",
         confidence: "", excitement: "", relationship: "", hard: "", hardMove: "",
-        declaration: "", declarationSrc: "", signing: false },
+        declaration: "", declarationSrc: "", signing: false, question: "" },
   anchors: {},
   disciplineNote: "",
   wife: { listen: "", understood: "", leak: "", appreciate: "", easier: "" },
@@ -844,7 +845,8 @@ const emptyCore = () => ({
   quoteFavs: [],
   wins: [],
   morningMode: "standard",
-  freq: FREQ_KEYS.reduce((a, [k]) => ((a[k] = k === "gratitude" || k === "identity" || k === "affirmation" ? "always" : "often"), a), {}),
+  freq: { ...FREQ_DEFAULT },
+  freqVersion: FREQ_VERSION,
   areas: AREA_DEFS.map(emptyArea),
   levelCadence: "quarter",   // quarter | month | manual
   levels: [],                // each revisit, oldest first
@@ -870,6 +872,10 @@ const mergeCore = (saved) => {
   out.areas = mergeAreas(saved.areas);
   /* A persisted order from the nine-section nav names sections that no longer
      exist; filtering it would leave a nonsense order rather than the new one. */
+  if (saved.freqVersion !== FREQ_VERSION) {
+    out.freq = { ...FREQ_DEFAULT };
+    out.freqVersion = FREQ_VERSION;
+  }
   if (saved.navVersion !== NAV_VERSION) {
     out.order = SECTIONS.map((x) => x.id);
     out.hidden = [];
@@ -3240,15 +3246,15 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 
 .tj-root.tj-dawn {
-  --paper:#FBF9F4; --raise:#FFFEFA; --ink:#1A1917;
-  --ink70:rgba(26,25,23,0.68); --ink45:rgba(26,25,23,0.46);
-  --ink28:rgba(26,25,23,0.30); --ink16:rgba(26,25,23,0.16);
-  --line:rgba(26,25,23,0.09); --lineSoft:rgba(26,25,23,0.055);
-  --accent:#4C6B55; --accentSoft:rgba(76,107,85,0.13);
-  --head:rgba(251,249,244,0.93); --headFade:rgba(251,249,244,0);
-  --nav:rgba(251,249,244,0.80);
+  --paper:#FDF2E9; --raise:#FFFAF4; --ink:#231710;
+  --ink70:rgba(35,23,16,0.70); --ink45:rgba(35,23,16,0.48);
+  --ink28:rgba(35,23,16,0.32); --ink16:rgba(35,23,16,0.18);
+  --line:rgba(35,23,16,0.11); --lineSoft:rgba(35,23,16,0.06);
+  --accent:#A8452A; --accentSoft:rgba(168,69,42,0.13);
+  --head:rgba(253,242,233,0.93); --headFade:rgba(253,242,233,0);
+  --nav:rgba(253,242,233,0.82);
 }
-.tj-root.tj-dawn .tj-wash { opacity: .75; }
+.tj-root.tj-dawn .tj-wash { opacity: .9; }
 
 .tj-quote {
   margin-top: 26px; padding: 22px 22px 20px; border-radius: 3px;
@@ -3394,6 +3400,26 @@ const RELATIONSHIP_FRAMES = [
   "Who have you been short with lately that deserves better today?",
 ];
 
+/* One question a morning, drawn from a pool with no overlap between entries and
+   none with gratitude, the intention, today's three, or the sheet. Four
+   separate frame-steps used to ask around the same few things. */
+const MORNING_QUESTIONS = [
+  "Who needs to hear from you today?",
+  "What would make today feel well spent, even if nothing goes to plan?",
+  "Where are you most likely to take the easy path today?",
+  "What are you pretending not to know?",
+  "What could you do today that you'd thank yourself for in a year?",
+  "What are you carrying that isn't yours?",
+  "Where did you leave something unfinished that's still costing you?",
+  "What would you do today if you weren't worried about looking foolish?",
+  "Who could you make one degree better today?",
+  "What's the conversation you keep not having?",
+  "What would enough look like today?",
+  "What are you looking forward to, honestly?",
+  "Where have you earned the right to trust yourself?",
+  "What would you tell a friend in exactly your position this morning?",
+];
+
 const AFFIRMATION_CATS = ["Confidence","Marriage","Fatherhood","Discipline","Sales","Faith","Health","Patience","Decisions","Identity"];
 const SEED_AFFIRMATIONS = [
   ["I can handle difficult conversations without becoming reactive.", "Patience"],
@@ -3445,7 +3471,6 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
   const [redo, setRedo] = useState([]);
   const [sel, setSel] = useState(null);
   const draw = useRef(null);
-  const sawPen = useRef(false);
   const strokes = (value && value.strokes) || [];
   const paper = (value && value.paper) || "ruled";
   const size = useRef({ w: 0, h: 0 });
@@ -3485,10 +3510,19 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
         ctx.beginPath(); ctx.arc(s.pts[0][0] + dx, s.pts[0][1] + dy, spec.w / 2, 0, 7);
         ctx.fillStyle = ctx.strokeStyle; ctx.fill();
       } else {
+        /* quadratic through each point, anchored on the midpoints either side,
+           so handwriting reads as curves rather than a chain of straight cuts */
         for (let i = 1; i < s.pts.length; i++) {
           const p0 = s.pts[i - 1], p1 = s.pts[i];
+          const prev = s.pts[i - 2] || p0, next = s.pts[i + 1] || p1;
+          const aX = (prev[0] + p0[0]) / 2 + dx, aY = (prev[1] + p0[1]) / 2 + dy;
+          const bX = (p1[0] + next[0]) / 2 + dx, bY = (p1[1] + next[1]) / 2 + dy;
           ctx.lineWidth = s.tool === "marker" ? spec.w : Math.max(0.7, spec.w * (0.45 + (p1[2] || 0.5) * 1.15));
-          ctx.beginPath(); ctx.moveTo(p0[0] + dx, p0[1] + dy); ctx.lineTo(p1[0] + dx, p1[1] + dy); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(aX, aY);
+          ctx.quadraticCurveTo(p0[0] + dx, p0[1] + dy, (p0[0] + p1[0]) / 2 + dx, (p0[1] + p1[1]) / 2 + dy);
+          ctx.quadraticCurveTo(p1[0] + dx, p1[1] + dy, bX, bY);
+          ctx.stroke();
         }
       }
       if (selected) {
@@ -3558,10 +3592,29 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
     return inside;
   };
 
+  /* Palm rejection, properly.
+
+     What was wrong: up() took no pointer id, so ANY pointer lifting ended the
+     stroke — a palm resting and shifting weight terminated the pen's line
+     mid-letter, which is why a single letter took several attempts. And if the
+     palm landed first, it started the stroke and the pen then overwrote it.
+
+     Now one pointer owns a stroke from down to up, and touch is suppressed
+     while a pen is down and for a moment after — intent-scoped, so it resets
+     and finger drawing still works later, instead of the old sawPen flag that
+     latched true forever on first Pencil contact. */
+  const active = useRef(null);      // the pointer id that owns the live stroke
+  const penUntil = useRef(0);       // touch stays out until this moment passes
+  const PEN_GRACE = 700;
+
+  const penIsDriving = () => Date.now() < penUntil.current;
+
   const down = (e) => {
-    if (e.pointerType === "pen") sawPen.current = true;
-    if (e.pointerType === "touch" && sawPen.current) return; // palm rejection
-    e.currentTarget.setPointerCapture(e.pointerId);
+    if (e.pointerType === "pen") penUntil.current = Date.now() + PEN_GRACE;
+    if (e.pointerType === "touch" && (penIsDriving() || active.current !== null)) return;
+    if (active.current !== null) return;   // one stroke at a time
+    active.current = e.pointerId;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) { /* already gone */ }
     const p = pos(e);
     if (tool === "lasso") {
       if (sel && inPoly(p, sel.poly)) { draw.current = { moving: true, from: p }; return; }
@@ -3580,21 +3633,37 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
     if (near.length) commit(strokes.filter((s) => !near.includes(s)));
   };
   const move = (e) => {
+    if (e.pointerType === "pen") penUntil.current = Date.now() + PEN_GRACE;
+    if (e.pointerId !== active.current) return;      // not the pointer that owns this stroke
     const d = draw.current;
     if (!d) return;
-    if (e.pointerType === "touch" && sawPen.current) return;
-    const p = pos(e);
-    if (d.lasso) { d.lasso.push(p); paint(); return; }
-    if (d.moving) { setSel((s) => s && { ...s, dx: p[0] - d.from[0], dy: p[1] - d.from[1] }); return; }
-    if (d.erasing) { eraseAt(p); return; }
-    if (d.live) {
-      const last = d.live.pts[d.live.pts.length - 1];
-      if (Math.abs(last[0] - p[0]) + Math.abs(last[1] - p[1]) < 0.8) return;
-      d.live.pts.push(p);
-      paint();
+
+    /* a 120Hz display generates points faster than pointermove fires; without
+       these, fast handwriting loses the middle of every quick curve */
+    const raw = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+    const events = raw && raw.length ? raw : [e];
+
+    if (d.moving) { const p = pos(e); setSel((sv) => sv && { ...sv, dx: p[0] - d.from[0], dy: p[1] - d.from[1] }); return; }
+
+    for (const ev of events) {
+      const p = pos(ev);
+      if (d.lasso) { d.lasso.push(p); continue; }
+      if (d.erasing) { eraseAt(p); continue; }
+      if (d.live) {
+        const last = d.live.pts[d.live.pts.length - 1];
+        if (Math.abs(last[0] - p[0]) + Math.abs(last[1] - p[1]) < 0.6) continue;
+        /* pressure smoothed toward the running value — mapping it raw to width
+           is what produced the jitter along a steady stroke */
+        p[2] = last[2] * 0.6 + p[2] * 0.4;
+        d.live.pts.push(p);
+      }
     }
+    paint();
   };
-  const up = () => {
+  const up = (e) => {
+    if (e && e.pointerId !== active.current) return;   // a palm lifting is not the end of a stroke
+    active.current = null;
+    if (e) { try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) { /* fine */ } }
     const d = draw.current;
     draw.current = null;
     if (!d) return;
@@ -3648,7 +3717,7 @@ function Ink({ value, onChange, height = 300, full, onToggleFull, label }) {
       {/* full page lets the flex column own the height — calc(100vh - 210px)
           was wrong in standalone, where 100vh is not the usable viewport */}
       <div ref={wrapRef} className="tj-inkwrap" style={full ? undefined : { height }}>
-        <canvas ref={cvsRef} className="tj-canvas" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onPointerLeave={up} aria-label={label || "Handwriting canvas"} />
+        <canvas ref={cvsRef} className="tj-canvas" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} aria-label={label || "Handwriting canvas"} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 10 }}>
         <div style={{ display: "flex", gap: 16 }}>
@@ -3708,10 +3777,20 @@ function InkThumb({ value, height = 76 }) {
 }
 
 const FREQ_KEYS = [
-  ["gratitude", "Gratitude"], ["affirmation", "Affirmation"], ["confidence", "Confidence"],
-  ["excitement", "Anticipation"], ["identity", "Identity"], ["relationships", "Relationships"],
-  ["hard", "One hard thing"], ["declaration", "Declaration"],
+  ["gratitude", "Gratitude"], ["question", "One question"], ["identity", "Who you're being"],
+  ["hard", "One hard thing"], ["affirmation", "Affirmation"], ["confidence", "Confidence"],
+  ["excitement", "Anticipation"], ["relationships", "Relationships"], ["declaration", "Declaration"],
 ];
+
+/* Defaults after TJ said the morning felt like a chore and the questions
+   overlapped. Gratitude, the intention that carries into the evening, one
+   distinct question, and the sheet. The rest stay in Settings, switched off,
+   because the sheet now does the identity work they were doing. */
+const FREQ_DEFAULT = {
+  gratitude: "always", question: "always", identity: "always", hard: "sometimes",
+  affirmation: "off", confidence: "off", excitement: "off", relationships: "off", declaration: "off",
+};
+const FREQ_VERSION = 2;
 const shows = (freq, dateKey, key) => {
   const v = (freq || {})[key] || "often";
   if (v === "off") return false;
@@ -3775,6 +3854,7 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
     return wins[hashStr(date + "winpick") % wins.length];
   }, [core.wins, date]);
 
+  const question = MORNING_QUESTIONS[hashStr(date + "q") % MORNING_QUESTIONS.length];
   const frames = {
     gratitude: GRATITUDE_FRAMES[hashStr(date + "g") % GRATITUDE_FRAMES.length],
     confidence: CONFIDENCE_FRAMES[hashStr(date + "c") % CONFIDENCE_FRAMES.length],
@@ -3792,7 +3872,9 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   if (!focus.length && mode !== "quick" && shows(freq, date, "confidence")) steps.push({ id: "confidence", done: () => has(am.confidence) });
   if (!focus.length && mode !== "quick" && shows(freq, date, "excitement")) steps.push({ id: "excitement", done: () => has(am.excitement) });
   if (shows(freq, date, "identity")) steps.push({ id: "identity", done: () => has(day.intention) });
-  if (focus.length) steps.push({ id: "focus", done: () => focus.every((a) => has((day.areaToday || {})[a.id])) });
+  if (shows(freq, date, "question")) steps.push({ id: "question", done: () => has(am.question) });
+  /* reading your own next moves back is not homework — this never blocks */
+  if (focus.length) steps.push({ id: "focus", done: () => true });
   else if (mode !== "quick" && shows(freq, date, "relationships")) steps.push({ id: "relationships", done: () => has(am.relationship) });
   steps.push({ id: "three", done: () => day.priorities.some((p) => has(p.t)) });
   if (mode !== "quick" && shows(freq, date, "hard")) steps.push({ id: "hard", done: () => has(am.hard) });
@@ -4030,25 +4112,24 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
         </div>
       )}
 
+      {on("question") && (
+        <div className="tj-reveal">
+          <Section label="One question">
+            <Prompt q={question} value={am.question} onChange={(v) => setAm("question", v)} placeholder="A sentence is enough." last />
+          </Section>
+        </div>
+      )}
+
       {on("focus") && focus.length > 0 && (
         <div className="tj-reveal">
-          <Section label="In focus" note={focus.length === 1 ? "one area" : `${focus.length} areas`}>
-            <div style={{ fontFamily: SERIF, fontSize: 19.5, fontWeight: 300, color: C.ink, lineHeight: 1.4, letterSpacing: "-0.014em", padding: "20px 0 4px" }}>
-              What does today look like in the areas you're working on?
-            </div>
+          <Section label="In focus" note="what you already decided">
+            {/* what you already decided, read back — not another form to fill */}
             {focus.map((a, i) => (
-              <div key={a.id} style={{ padding: "16px 0", borderBottom: i < focus.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                  <Eyebrow style={{ color: C.accent }}>{a.label}</Eyebrow>
+              <div key={a.id} style={{ display: "flex", gap: 14, alignItems: "baseline", padding: "14px 0", borderBottom: i < focus.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                <Eyebrow style={{ color: C.accent, minWidth: 94 }}>{a.label}</Eyebrow>
+                <div style={{ flex: 1, fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, color: a.next ? C.ink70 : C.ink28, lineHeight: 1.5 }}>
+                  {a.next || "No next move written yet."}
                 </div>
-                {a.next && (
-                  <div style={{ fontFamily: SERIF, fontSize: 16.5, fontWeight: 300, fontStyle: "italic", color: C.ink45, lineHeight: 1.5, margin: "8px 0 4px" }}>
-                    {a.next}
-                  </div>
-                )}
-                <Grow value={(day.areaToday || {})[a.id]} ariaLabel={a.label}
-                  onChange={(v) => setD(["areaToday", a.id], v)}
-                  placeholder="One line. What happens here today?" />
               </div>
             ))}
           </Section>
@@ -4236,7 +4317,7 @@ function DailySheet({ core, setC, day, setD, date, ink, setInk, index }) {
 
       {actions.length > 0 && (
         <div style={{ marginTop: 26, paddingTop: 20, borderTop: `1px solid ${C.line}` }}>
-          <Eyebrow style={{ marginBottom: 4 }}>What I do regardless</Eyebrow>
+          <Eyebrow style={{ marginBottom: 4 }}>Non-negotiables</Eyebrow>
           {actions.map((a, i) => {
             const on = !!(sheet.did || {})[a.id];
             return (
@@ -4289,7 +4370,7 @@ function SheetEditor({ core, setC }) {
         <Note>Write them as facts, not targets. "I make $74,000 a month" does different work than "reach $74k".</Note>
       </Section>
 
-      <Section label="What I do regardless" note="the non-negotiable actions">
+      <Section label="Non-negotiables" note="what you do whether you feel like it or not">
         {actions.map((a) => (
           <div key={a.id} style={{ padding: "14px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
             <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
