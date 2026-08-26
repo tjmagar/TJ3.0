@@ -28,6 +28,12 @@ const page = await ctx.newPage();
 page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
 page.on("pageerror", (e) => errors.push("PAGEERROR: " + e.message));
 
+/* The service worker update prompt used to reload without activating the
+   waiting worker, so it reappeared on every load forever. Nothing in this app
+   should ever raise a blocking dialog. */
+const dialogs = [];
+page.on("dialog", (d) => { dialogs.push(d.message()); d.dismiss().catch(() => {}); });
+
 const ok = (label, cond) => console.log(`${cond ? "PASS" : "FAIL"}  ${label}`);
 
 await page.goto(URL, { waitUntil: "networkidle" });
@@ -137,6 +143,9 @@ await p2.waitForTimeout(600);
 const restored = (await p2.textContent(".tj-main")) || "";
 ok("fresh profile imports the backup with entries intact",
   restored.includes("A line I would be upset to lose in a restore."));
+
+// 10. no blocking dialogs anywhere in that whole run, including across reloads
+ok(`no blocking dialogs${dialogs.length ? " — saw: " + dialogs.join(" | ") : ""}`, dialogs.length === 0);
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();
