@@ -88,12 +88,15 @@ const body = (await page.textContent(".tj-main")) || "";
 ok("an area opens with stands / better / next", /Where it stands/.test(body) && /The next actual move/.test(body));
 ok("an area carries its daily prompts", /Sleep/.test(body) && /Training/.test(body));
 
-// 7. Review absorbed Patterns, decisions and the level check
+// 7. Review is three tabs, and Looking back holds the readings in one scroll
 await page.click('.tj-navitem:text-is("Review")');
 await page.waitForTimeout(400);
 const review = (await page.textContent(".tj-main")) || "";
-ok("Review holds the old Patterns tabs plus decisions and the level check",
-  ["Insights", "Blind spots", "Experiments", "Decisions", "Week", "Month", "Level check"].every((t) => review.includes(t)));
+const revTabs = await page.$$eval(".tj-seg .tj-tap", (n) => n.map((x) => x.textContent.trim()));
+ok(`Review is three tabs (${revTabs.join(", ")})`,
+  revTabs.length === 3 && ["Looking back", "Decisions", "Level check"].every((t) => revTabs.includes(t)));
+ok("Looking back carries the synthesis and all three readings in one scroll",
+  ["This week", "This month", "Themes", "Blind spots", "Experiments"].every((t) => review.includes(t)));
 
 // 8. themes: dawn on morning Today, dusk on Talk
 await page.click('.tj-navitem:text-is("Today")');
@@ -348,6 +351,107 @@ ok("each area carries its own colour", (await page.evaluate(() => {
 
   // and one tap adds the next photo without leaving Today
   ok("the strip carries an add affordance", (await page.$$('.tj-vplus input[type="file"]')).length === 1);
+}
+
+/* 20. One list called Non-negotiables, not two. The Discipline tab in Becoming
+   edited a second array nothing else read — that is the "what I do regardless"
+   confusion, and it is gone. */
+{
+  await page.click('.tj-navitem:text-is("Areas")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-main >> text=Character');
+  await page.waitForTimeout(800);
+  const tabs = await page.$$eval(".tj-seg .tj-tap", (n) => n.map((x) => x.textContent.trim()));
+  ok(`Becoming is Identity and Goals only (${tabs.join(", ")})`, tabs.includes("Identity") && tabs.includes("Goals") && !tabs.includes("Discipline"));
+  const ch = (await page.textContent(".tj-main")) || "";
+  ok("only one Non-negotiables heading remains", (ch.match(/Non-negotiables/g) || []).length === 1);
+}
+
+/* 21. The day closes. The evening reads the three back and records what
+   happened; the next morning offers what was left open. */
+{
+  await page.click('.tj-navitem:text-is("Today")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-seg .tj-tap:text-is("Morning")').catch(() => {});
+  await page.waitForTimeout(400);
+  const p1 = await page.waitForSelector('[aria-label="Priority 1"]', { timeout: 8000 });
+  await p1.fill("Call the roofer back");
+  await page.waitForTimeout(1100);
+
+  await page.click('.tj-seg .tj-tap:text-is("Evening")');
+  await page.waitForTimeout(600);
+  const ev = (await page.textContent(".tj-main")) || "";
+  ok("the evening reads today's three back", /Call the roofer back/.test(ev) && /Did it/.test(ev) && /Moved it/.test(ev));
+
+  await page.click('.tj-main .tj-tap:text-is("Moved it")');
+  await page.waitForTimeout(1100);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".tj-nav", { timeout: 10000 });
+  await page.waitForTimeout(900);
+  await page.click('.tj-seg .tj-tap:text-is("Evening")').catch(() => {});
+  await page.waitForTimeout(600);
+  const marked = await page.$$eval(".tj-main .tj-tap", (n) => n.filter((x) => x.textContent.trim() === "Moved it")
+    .some((x) => getComputedStyle(x).color !== getComputedStyle(x.parentElement).color));
+  ok("what happened to a priority survives a reload", marked === true);
+
+  // tomorrow morning offers it back
+  await page.click('[aria-label="Next day"]');
+  await page.waitForTimeout(900);
+  await page.click('.tj-seg .tj-tap:text-is("Morning")').catch(() => {});
+  await page.waitForTimeout(700);
+  const tomorrow = (await page.textContent(".tj-main")) || "";
+  ok("the next morning carries what was left open", /Left open yesterday/.test(tomorrow) && /Call the roofer back/.test(tomorrow));
+  await page.click('.tj-main .tj-tap:text-is("Carry it")');
+  await page.waitForTimeout(700);
+  const pulled = await page.inputValue('[aria-label="Priority 1"]');
+  ok(`"Carry it" puts it in an empty slot (got "${pulled.slice(0, 22)}…")`, pulled === "Call the roofer back");
+  await page.click('[aria-label="Previous day"]');
+  await page.waitForTimeout(700);
+}
+
+/* 22. The evening ticks the one list and logs the focus areas' headline
+   numbers, so the charts have something to draw. */
+{
+  await page.click('.tj-seg .tj-tap:text-is("Evening")').catch(() => {});
+  await page.waitForTimeout(700);
+  const ev = (await page.textContent(".tj-main")) || "";
+  ok("the evening ticks the daily sheet's actions", /Discipline/.test(ev) && /I train before the day starts/.test(ev));
+  ok("the evening logs the focus areas' headline metrics", /Log/.test(ev) && /in focus/.test(ev));
+}
+
+/* 23. Nothing in the app tracked whether a backup had ever happened. This
+   profile exported earlier in the run, so it should now say so — and a fresh
+   profile, which never has, should say that in the accent colour. */
+{
+  const foot = (await page.textContent(".tj-main")) || "";
+  ok(`the export is recorded and read back (${(foot.match(/Backed up[^\n]{0,20}/) || [""])[0].trim()})`, /Backed up today/.test(foot));
+
+  const p4 = await (await browser.newContext({ viewport: { width: 1024, height: 1366 } })).newPage();
+  await p4.goto(URL, { waitUntil: "networkidle" });
+  await p4.waitForSelector(".tj-nav", { timeout: 10000 });
+  await p4.waitForTimeout(600);
+  const fresh = (await p4.textContent(".tj-main")) || "";
+  ok("a profile that has never backed up is told so", /Never backed up/.test(fresh));
+  const colour = await p4.$$eval(".tj-main .tj-tap", (n) => {
+    const el = n.find((x) => /Never backed up/.test(x.textContent || ""));
+    return el ? getComputedStyle(el).color : "";
+  });
+  const accent = await p4.$eval(".tj-root", (e) => getComputedStyle(e).getPropertyValue("--accent").trim());
+  const hex = (c) => "#" + (c.match(/\d+/g) || []).slice(0, 3).map((x) => Number(x).toString(16).padStart(2, "0")).join("");
+  ok(`the never state wears the accent (${hex(colour)} vs ${accent})`, hex(colour).toLowerCase() === accent.toLowerCase());
+  await p4.context().close();
+}
+
+/* 24. Talk has a way in from the day and from an area. */
+{
+  const evText = (await page.textContent(".tj-main")) || "";
+  ok("the evening offers a way into Talk", /Talk it through|Add an API key/.test(evText));
+  await page.click('.tj-navitem:text-is("Areas")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-main >> text=Body');
+  await page.waitForTimeout(600);
+  const areaText = (await page.textContent(".tj-main")) || "";
+  ok("an area offers a way into Talk", /Talk about body|Add an API key/.test(areaText));
 }
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");

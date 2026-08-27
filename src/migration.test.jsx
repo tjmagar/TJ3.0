@@ -29,7 +29,10 @@ const LEGACY = {
     order: ["today", "people", "faith", "journal", "patterns", "judgment", "library", "becoming", "talk"],
     hidden: ["library"],
     identity: [{ id: "i1", text: "I keep promises to myself.", since: today, versions: [] }],
-    nonNegotiables: [{ id: "n1", label: "Training" }],
+    /* One seeded default and one he actually wrote. Only the written one is
+       his; the default says what the sheet's own defaults already say. */
+    nonNegotiables: [{ id: "n1", label: "Training" }, { id: "n2", label: "No phone until after the gym" }],
+    dailyActions: [{ id: "a1", text: "I train before the day starts.", cadence: "everyday" }],
     wins: [{ id: "w1", d: today, t: "Ran the hard conversation without getting defensive." }],
     goals: [{ id: "g1", area: "Foundation", title: "Sleep before midnight", progress: 3 }],
   },
@@ -153,6 +156,39 @@ describe("a record written by the nine-section build survives the areas restruct
     await waitFor(() => {
       expect((document.body.textContent || "").includes("I keep promises to myself.")).toBe(true);
     }, { timeout: 3000 });
+  });
+
+  /* There were two lists both called "Non-negotiables". Folding them into one
+     must move what he wrote across and leave the old array untouched on disk —
+     never lose written data, even when the surface that held it is gone. */
+  it("folds the second non-negotiables list into the daily sheet's actions", async () => {
+    render(<App />);
+    await screen.findByText("Areas", {}, { timeout: 5000 });
+
+    await waitFor(async () => {
+      const core = await read("tj:core");
+      expect(core.disciplineMerged).toBe(true);
+      const texts = (core.dailyActions || []).map((a) => a.text);
+      expect(texts).toContain("No phone until after the gym");
+      // the seeded default does not arrive twice under two spellings
+      expect(texts.filter((t) => /train/i.test(t))).toHaveLength(1);
+      // and the original array is still on disk, still exported
+      expect((core.nonNegotiables || []).map((n) => n.label)).toContain("No phone until after the gym");
+    }, { timeout: 4000 });
+  });
+
+  it("runs the fold once, not on every load", async () => {
+    render(<App />);
+    await screen.findByText("Areas", {}, { timeout: 5000 });
+    await waitFor(async () => expect((await read("tj:core")).disciplineMerged).toBe(true), { timeout: 4000 });
+    const first = (await read("tj:core")).dailyActions.length;
+
+    cleanup();
+    render(<App />);
+    await screen.findByText("Areas", {}, { timeout: 5000 });
+    await waitFor(async () => {
+      expect((await read("tj:core")).dailyActions).toHaveLength(first);
+    }, { timeout: 4000 });
   });
 
   it("carries the library into Mind", async () => {
