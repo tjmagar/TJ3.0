@@ -3279,6 +3279,61 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 .tj-vitem.tj-has .tj-vlabel { color: #FFF6EC; }
 .tj-vitem.tj-has .tj-vnote { color: rgba(255,246,236,0.74); }
 
+/* the board leads the morning — one large shot, the rest a strip beneath it */
+.tj-vhero { display: block; }
+.tj-vshot {
+  position: relative; display: block; overflow: hidden;
+  aspect-ratio: 16 / 10; border-radius: 16px;
+  background-color: var(--glass); background-size: cover; background-position: center;
+  border: 1px solid var(--glassLine);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.07) inset, 0 18px 44px rgba(0,0,0,0.42);
+}
+.tj-vscrim2 {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(10,8,6,0.88), rgba(10,8,6,0.22) 52%, rgba(10,8,6,0) 80%);
+}
+.tj-vhtext { position: absolute; left: 20px; right: 20px; bottom: 17px; display: block; }
+.tj-veyebrow {
+  display: block; font-family: ${SANS}; font-size: 10.5px; letter-spacing: 0.15em;
+  text-transform: uppercase; font-weight: 500; color: rgba(255,246,236,0.62);
+}
+.tj-vhlabel {
+  display: block; font-family: ${SERIF}; font-size: 27px; font-weight: 300; line-height: 1.12;
+  letter-spacing: -0.021em; color: #FFF6EC; margin-top: 7px;
+}
+.tj-vhnote {
+  display: block; font-family: ${SANS}; font-size: 12.5px; margin-top: 5px; color: rgba(255,246,236,0.74);
+}
+.tj-vstrip { display: flex; gap: 8px; margin-top: 8px; }
+.tj-vthumb {
+  flex: 1; height: 54px; border-radius: 9px;
+  background-size: cover; background-position: center;
+  border: 1px solid var(--glassLine); opacity: .48;
+  transition: opacity .3s ease, border-color .3s ease;
+}
+.tj-vthumb.tj-on { opacity: 1; border-color: var(--accent); }
+.tj-vplus {
+  flex: 0 0 54px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: 1; background: var(--glass); color: var(--accent);
+  font-family: ${SANS}; font-size: 17px; line-height: 1;
+}
+.tj-vempty {
+  display: flex; align-items: center; gap: 16px; cursor: pointer;
+  padding: 17px 19px; border-radius: 14px;
+  background: var(--glass); border: 1px solid var(--glassLine);
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 10px 26px rgba(0,0,0,0.28);
+}
+.tj-vempty .tj-veyebrow { color: var(--ink28); }
+.tj-veline {
+  display: block; font-family: ${SERIF}; font-size: 16.5px; font-weight: 300;
+  color: var(--ink45); line-height: 1.4; margin-top: 6px;
+}
+.tj-vebtn {
+  font-family: ${SANS}; font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent); white-space: nowrap;
+}
+
 .tj-scripture {
   margin-top: 14px; padding: 20px 22px;
   background: var(--glass); border: 1px solid var(--glassLine);
@@ -3424,7 +3479,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 @media (prefers-reduced-transparency: reduce) {
   .tj-glass, .tj-card, .tj-prompt, .tj-scripture, .tj-quote, .tj-sheet, .tj-toast,
-  .tj-head, .tj-nav, .tj-vitem {
+  .tj-head, .tj-nav, .tj-vitem:not(.tj-has), .tj-vempty {
     backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
     background: #1D2328 !important;
   }
@@ -4150,7 +4205,10 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
   if (writeMode) {
     return (
       <div>
-        <MorningHead date={date} todayKey={todayKey} opener={opener} />
+        <div style={{ paddingTop: 14 }}>
+          <VisionHero core={core} setC={setC} date={date} />
+        </div>
+        <MorningHead date={date} todayKey={todayKey} opener={opener} top={4} />
         <div style={{ paddingTop: 8 }}>
           <Segment options={[{ id: "type", label: "Type" }, { id: "write", label: "Write" }]} value="write" onChange={(v) => v === "type" && setWriteMode(false)} />
           <Rule style={{ marginTop: 6, marginBottom: 18 }} />
@@ -4165,18 +4223,16 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
 
   return (
     <div>
-      <MorningHead date={date} todayKey={todayKey} opener={opener} core={core} setC={setC} />
+      <div style={{ paddingTop: 14 }}>
+        <VisionHero core={core} setC={setC} date={date} />
+      </div>
+
+      <MorningHead date={date} todayKey={todayKey} opener={opener} core={core} setC={setC} top={4} />
 
       <div style={{ paddingTop: 6 }}>
         <Segment options={[{ id: "type", label: "Type" }, { id: "write", label: "Write" }]} value="type" onChange={(v) => v === "write" && setWriteMode(true)} />
         <Rule style={{ marginTop: 6 }} />
       </div>
-
-      {(core.vision || []).some((v) => v.img) && (
-        <div style={{ paddingTop: 20 }}>
-          <VisionBoard core={core} setC={setC} />
-        </div>
-      )}
 
       {/* mood, two taps, then the quote lands on it */}
       <div style={{ paddingTop: 24 }}>
@@ -4645,6 +4701,80 @@ function VisionBoard({ core, setC, editable }) {
   );
 }
 
+/* The photos lead the morning, above the greeting, every day. On the paper
+   sheet the picture of what you're working toward sits at the top of the page
+   — you see it before the day starts, not after scrolling past three prompts.
+   One large shot rotates daily so the board stays alive; the strip under it
+   promotes any other photo to the lead with one tap. */
+function VisionHero({ core, setC, date }) {
+  const items = core.vision || [];
+  const shots = items.filter((v) => v.img);
+  const [busy, setBusy] = useState(false);
+  const [picked, setPicked] = useState(null);
+
+  const lead = useMemo(() => {
+    if (!shots.length) return null;
+    const chosen = shots.find((s) => s.id === picked);
+    return chosen || shots[hashStr(date + "vis") % shots.length];
+  }, [core.vision, picked, date]);
+
+  const add = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const img = await readImage(file);
+      const slot = items.find((v) => !v.img);
+      setC("vision", slot
+        ? items.map((v) => (v.id === slot.id ? { ...v, img } : v))
+        : [...items, { id: uid(), label: "", note: "", img }]);
+    } catch (e) { /* the picker can hand back something unreadable; stay quiet in the morning */ }
+    setBusy(false);
+  };
+
+  /* An empty grid of five grey rectangles is a worse greeting than one line,
+     but he still needs the way in without hunting through Areas. */
+  if (!lead) {
+    return (
+      <label className="tj-vempty">
+        <input type="file" accept="image/*" style={{ display: "none" }}
+          onChange={(e) => add(e.target.files && e.target.files[0])} />
+        <span style={{ flex: 1 }}>
+          <span className="tj-veyebrow">What you're working toward</span>
+          <span className="tj-veline">Put a picture of it here. You'll see it every morning.</span>
+        </span>
+        <span className="tj-vebtn">{busy ? "Adding…" : "Add a photo"}</span>
+      </label>
+    );
+  }
+
+  return (
+    <div className="tj-vhero">
+      <div className="tj-vshot" style={{ backgroundImage: `url(${lead.img})` }}>
+        <span className="tj-vscrim2" />
+        <span className="tj-vhtext">
+          <span className="tj-veyebrow">What you're working toward</span>
+          {lead.label && <span className="tj-vhlabel">{lead.label}</span>}
+          {lead.note && <span className="tj-vhnote">{lead.note}</span>}
+        </span>
+      </div>
+      <div className="tj-vstrip">
+        {shots.length > 1 && shots.map((s) => (
+          <Tap key={s.id} onClick={() => setPicked(s.id)} aria={s.label || "Show this one"}
+            className={"tj-vthumb" + (s.id === lead.id ? " tj-on" : "")}
+            style={{ backgroundImage: `url(${s.img})` }} />
+        ))}
+        {/* adding the next one stays one tap away — editing lives in Character,
+            but he should not have to go there to put a picture on the board */}
+        <label className="tj-vthumb tj-vplus" aria-label="Add a photo">
+          <input type="file" accept="image/*" style={{ display: "none" }}
+            onChange={(e) => add(e.target.files && e.target.files[0])} />
+          <span>{busy ? "…" : "+"}</span>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 /* editing the sheet itself lives with Character, not in the morning */
 function SheetEditor({ core, setC }) {
   const goals = core.lifeGoals || [];
@@ -4705,10 +4835,10 @@ function SheetEditor({ core, setC }) {
   );
 }
 
-function MorningHead({ date, todayKey, opener, core, setC }) {
+function MorningHead({ date, todayKey, opener, core, setC, top }) {
   const fav = (core && (core.openingFavs || []).includes(opener)) || false;
   return (
-    <div style={{ paddingTop: 14, paddingBottom: 4 }}>
+    <div style={{ paddingTop: top == null ? 14 : top, paddingBottom: 4 }}>
       <h1 style={{ fontFamily: SERIF, fontWeight: 300, fontSize: 38, lineHeight: 1.06, letterSpacing: "-0.026em", color: C.ink, margin: 0 }}>
         {date === todayKey ? "Good morning, TJ." : longDate(date)}
       </h1>

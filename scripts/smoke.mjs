@@ -305,6 +305,16 @@ ok("each area carries its own colour", (await page.evaluate(() => {
   return el ? getComputedStyle(el).getPropertyValue("--accent").trim() : "";
 })).length > 0);
 
+/* Before any photo exists the morning opens with one line and a way in, not a
+   grid of empty rectangles — an empty board must never greet him. */
+{
+  const p3 = await (await browser.newContext({ viewport: { width: 1024, height: 1366 } })).newPage();
+  await p3.goto(URL, { waitUntil: "networkidle" });
+  await p3.waitForSelector(".tj-nav", { timeout: 10000 });
+  ok("an empty board greets him with one line, not a grid", (await p3.$$(".tj-vempty")).length === 1 && (await p3.$$(".tj-vshot")).length === 0);
+  await p3.context().close();
+}
+
 // 19. the vision board: add a photo, and it must survive a reload
 {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
@@ -322,9 +332,22 @@ ok("each area carries its own colour", (await page.evaluate(() => {
   await page.waitForTimeout(1400);
   /* computed style, not the style attribute — React serialises that differently
      and checking it produced a false failure once */
-  const inMorning = await page.$$eval(".tj-vision .tj-vitem",
-    (n) => n.filter((x) => getComputedStyle(x).backgroundImage.includes("data:image")).length);
-  ok(`a vision photo survives a reload and rides the morning (${inMorning})`, inMorning >= 1);
+  const inMorning = await page.$eval(".tj-vshot",
+    (x) => getComputedStyle(x).backgroundImage.includes("data:image")).catch(() => false);
+  ok("a vision photo survives a reload and leads the morning", inMorning === true);
+
+  /* the board sits above the greeting — the whole point of moving it is that he
+     sees what he is working toward before anything else */
+  const order = await page.evaluate(() => {
+    const shot = document.querySelector(".tj-vshot");
+    const h1 = document.querySelector(".tj-main h1");
+    if (!shot || !h1) return null;
+    return shot.getBoundingClientRect().top < h1.getBoundingClientRect().top;
+  });
+  ok("the board leads the morning, above the greeting", order === true);
+
+  // and one tap adds the next photo without leaving Today
+  ok("the strip carries an add affordance", (await page.$$('.tj-vplus input[type="file"]')).length === 1);
 }
 
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");

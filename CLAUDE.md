@@ -60,7 +60,7 @@ Modelled on the paper goal sheet TJ uses. Its mechanic is not "set goals" — it
 - What was written files into Character under "Written again today", so the run of consecutive days is counted from the record rather than stored as a score.
 - Editing the sheet lives in Areas → Character, not in the morning. The morning is for doing it.
 
-**The vision board** is the sheet's photo panel. TJ names what he is working toward; the photographs are his own, added from the camera roll and downscaled to ~1400px JPEG on the way in so storage and the JSON export stay sane. Nothing ships with the app — no stock image carries the same weight, and shipping product photography would be someone else's copyright. It appears at the top of the morning only once at least one picture exists, so an empty board never greets him.
+**The vision board** is the sheet's photo panel. TJ names what he is working toward; the photographs are his own, added from the camera roll and downscaled to ~1400px JPEG on the way in so storage and the JSON export stay sane. Nothing ships with the app — no stock image carries the same weight, and shipping product photography would be someone else's copyright. It **leads the morning, above the greeting, every day** — the paper sheet keeps the picture at the top of the page, and a board you have to scroll to is a board you stop seeing. One photograph runs large, rotating daily; the rest sit in a strip beneath it and promote to the lead with one tap. Before any photo exists it is a single line and an "Add a photo" — never a grid of empty rectangles, and never a dead end that sends him to Areas to get started.
 
 ## The morning is short on purpose
 
