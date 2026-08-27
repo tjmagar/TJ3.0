@@ -699,7 +699,10 @@ const ANCHORS = [
   { id: "discipline", label: "Discipline", line: "Keep the promises I made this morning." },
   { id: "faith", label: "Faith", line: "Prayer, scripture, or stillness." },
   { id: "health", label: "Health", line: "Do the boring basics well." },
-  { id: "sales", label: "Sales", line: "Improve judgment, not just activity." },
+  /* The sixth anchor was "Sales — improve judgment, not just activity", left
+     over from the sales surfaces that were removed. This is TJ 3.0, not his
+     job. Any `day.anchors.sales` already recorded stays in storage and in the
+     export; it just no longer asks him about it every evening. */
 ];
 
 const MORNING_POOL = [
@@ -852,11 +855,11 @@ const emptyCore = () => ({
     { id: uid(), text: "I do the hardest task before reactive work.", cadence: "weekdays" },
   ],
   goals: [],
-  nonNegotiables: [
-    { id: uid(), label: "Wake and sleep window" },
-    { id: uid(), label: "Training" },
-    { id: uid(), label: "Most important task before reactive work" },
-  ],
+  /* Kept in the shape so an older export still round-trips, but no longer
+     seeded or edited: the daily sheet's actions are the one list now. */
+  nonNegotiables: [],
+  disciplineMerged: true,
+  lastBackup: "",
   affirmations: SEED_AFFIRMATIONS.map(([text, cat]) => ({ id: uid(), text, cat })),
   openingFavs: [],
   quoteFavs: [],
@@ -880,23 +883,54 @@ const emptyCore = () => ({
    still the owner's, still exported, and dropping them would lose written work. */
 const emptyLib = () => ({ insights: [], blindspots: [], experiments: [], books: [], kb: [], decisions: [], deals: [], calls: [], language: [], recs: [], affSuggestions: [] });
 
+/* A migration that only ever runs in memory is not a migration: the next load
+   redoes it, and anything keyed off the ids it generated — a tick against an
+   action, say — breaks between sessions. mergeCore marks the result when it
+   actually changed something and the loader commits it once. A Symbol because
+   JSON.stringify drops it, so the flag never reaches disk. */
+const MIGRATED = Symbol("migrated");
+
 /* A persisted `order` from an older build used to win wholesale, so any section
    added later was invisible in the nav forever. Reconcile against SECTIONS. */
 const mergeCore = (saved) => {
   const base = emptyCore();
-  if (!saved) return base;
+  if (!saved) { base[MIGRATED] = true; return base; }
   const out = { ...base, ...saved, customPrompts: { ...base.customPrompts, ...(saved.customPrompts || {}) } };
   out.areas = mergeAreas(saved.areas);
+
+  /* There were two lists both called "Non-negotiables": `nonNegotiables`,
+     edited in Character and read out in the evening, and `dailyActions`, on
+     the daily sheet with a cadence and a tick. Same name, same idea, different
+     records — which is why "what I do regardless" never made sense. The sheet's
+     list wins. Anything he actually wrote in the old one moves across once; the
+     three seeded defaults do not, since they say the same thing the sheet's
+     defaults already say. The old array stays in storage and in the export —
+     nothing written is thrown away, it just stops having its own editor. */
+  if (!saved.disciplineMerged) {
+    const seeded = ["Wake and sleep window", "Training", "Most important task before reactive work"];
+    const actions = Array.isArray(saved.dailyActions) ? [...saved.dailyActions] : [...base.dailyActions];
+    const already = (t) => actions.some((a) => (a.text || "").trim().toLowerCase() === t.toLowerCase());
+    for (const n of Array.isArray(saved.nonNegotiables) ? saved.nonNegotiables : []) {
+      const t = (n.label || "").trim();
+      if (!t || seeded.includes(t) || already(t)) continue;
+      actions.push({ id: uid(), text: t, cadence: "everyday", movedFrom: "nonNegotiables" });
+    }
+    out.dailyActions = actions;
+    out.disciplineMerged = true;
+    out[MIGRATED] = true;
+  }
   /* A persisted order from the nine-section nav names sections that no longer
      exist; filtering it would leave a nonsense order rather than the new one. */
   if (saved.freqVersion !== FREQ_VERSION) {
     out.freq = { ...FREQ_DEFAULT };
     out.freqVersion = FREQ_VERSION;
+    out[MIGRATED] = true;
   }
   if (saved.navVersion !== NAV_VERSION) {
     out.order = SECTIONS.map((x) => x.id);
     out.hidden = [];
     out.navVersion = NAV_VERSION;
+    out[MIGRATED] = true;
     return out;
   }
   const known = SECTIONS.map((s) => s.id);
@@ -1087,6 +1121,41 @@ function Working({ label = "Reading your entries" }) {
   );
 }
 
+/* Everything lives on one device. Clearing website data or a Safari storage
+   eviction takes years of writing with it, and the manual export was invisible
+   — nothing tracked whether it had ever happened. This is the quiet, unavoidable
+   part: one line at the bottom of every day, which goes orange when it has been
+   too long and exports on the spot. */
+const BACKUP_WARN_DAYS = 14;
+
+function backupAge(core, today) {
+  const last = core && core.lastBackup;
+  if (!last) return null;
+  const n = daysBetween(last, today);
+  return n < 0 ? 0 : n;
+}
+
+function BackupLine({ core, date, onExport }) {
+  const n = backupAge(core, date);
+  const stale = n == null || n >= BACKUP_WARN_DAYS;
+  const text = n == null ? "Never backed up — export now"
+    : n === 0 ? "Backed up today"
+    : n === 1 ? "Backed up yesterday"
+    : stale ? `Not backed up in ${n} days — export now`
+    : `Backed up ${n} days ago`;
+  return (
+    <div style={{ paddingTop: 34 }}>
+      <Rule soft />
+      <Tap onClick={onExport} aria="Export a backup"
+        style={{ display: "block", width: "100%", textAlign: "left", padding: "16px 0 4px", minHeight: 44,
+          fontFamily: SANS, fontSize: 11.5, letterSpacing: "0.06em",
+          color: stale ? C.accent : C.ink16 }}>
+        {text}
+      </Tap>
+    </div>
+  );
+}
+
 function Note({ children }) {
   return <div style={{ fontFamily: SANS, fontSize: 12.5, color: C.ink28, lineHeight: 1.6, padding: "14px 0" }}>{children}</div>;
 }
@@ -1169,8 +1238,68 @@ function RecordList({ records, fields, onChange, onAdd, onDelete, addLabel, empt
   );
 }
 
+/* The day never closed. He wrote three things every morning and nothing ever
+   asked whether they happened, so the app kept no record of follow-through and
+   the next morning had nothing to carry. Three lines, three taps. */
+const PRIORITY_STATES = [["done", "Did it"], ["moved", "Moved it"], ["missed", "Didn't"]];
+
+function Closeout({ day, setD }) {
+  const slots = day.priorities || [];
+  const three = slots.map((p, i) => ({ ...p, i })).filter((p) => (p.t || "").trim());
+  if (!three.length) return null;
+  const set = (i, v) => setD(["priorities"], slots.map((p, j) => (j === i ? { ...p, state: p.state === v ? "" : v, done: v === "done" && p.state !== "done" } : p)));
+  const kept = three.filter((p) => p.state === "done").length;
+  return (
+    <Section label="Today's three" note={`${kept} of ${three.length}`}>
+      {three.map((p, n) => (
+        <div key={p.i} style={{ padding: "16px 0", borderBottom: n < three.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+          <div style={{ fontFamily: SERIF, fontSize: 18.5, fontWeight: 300, lineHeight: 1.45,
+            color: p.state === "done" ? C.ink28 : C.ink, transition: "color .4s" }}>{p.t}</div>
+          <div style={{ display: "flex", gap: 24, paddingTop: 4 }}>
+            {PRIORITY_STATES.map(([v, l]) => (
+              <Tap key={v} onClick={() => set(p.i, v)}
+                style={{ fontFamily: SANS, fontSize: 12.5, padding: "10px 0", minHeight: 44,
+                  color: p.state === v ? C.accent : C.ink28, transition: "color .3s" }}>{l}</Tap>
+            ))}
+          </div>
+        </div>
+      ))}
+      <Note>Not a score. Tomorrow morning shows you what you moved.</Note>
+    </Section>
+  );
+}
+
+/* The other half of the loop. Anything left open last night is offered back,
+   once, with a tap to put it in an empty slot — not auto-filled, because a
+   thing you moved twice is information and silently re-adding it hides that. */
+function Carried({ prev, day, setD }) {
+  const slots = day.priorities || [];
+  const open = ((prev && prev.priorities) || [])
+    .filter((p) => (p.t || "").trim() && (p.state === "moved" || p.state === "missed"))
+    .filter((p) => !slots.some((x) => (x.t || "").trim().toLowerCase() === p.t.trim().toLowerCase()));
+  if (!open.length) return null;
+  const room = slots.findIndex((p) => !(p.t || "").trim());
+  const pull = (t) => {
+    if (room < 0) return;
+    setD(["priorities"], slots.map((p, j) => (j === room ? { ...p, t, state: "", done: false } : p)));
+  };
+  return (
+    <div style={{ paddingTop: 14 }}>
+      <Eyebrow style={{ color: C.ink28 }}>Left open yesterday</Eyebrow>
+      {open.map((p, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, padding: "12px 0", borderBottom: i < open.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+          <span style={{ flex: 1, fontFamily: SERIF, fontSize: 17, fontWeight: 300, fontStyle: "italic", color: C.ink45, lineHeight: 1.5 }}>{p.t}</span>
+          {room >= 0 && (
+            <Tap onClick={() => pull(p.t)} style={{ fontFamily: SANS, fontSize: 12, color: C.accent, padding: "6px 0 6px 8px", whiteSpace: "nowrap" }}>Carry it</Tap>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ══════════ TODAY — morning light, evening dark ═══════════ */
-function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMode, index, ai, aiWhy, ink, setInk, themes }) {
+function Today({ day, prevDay, core, lib, setD, setC, setLib, date, todayKey, mode, setMode, index, ai, aiWhy, ink, setInk, themes, onTalk, series, backup }) {
   const [showBody, setShowBody] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -1207,6 +1336,13 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
 
   const bodyRows = [["sleep", "Sleep"], ["training", "Training"], ["nutrition", "Nutrition"], ["energy", "Energy"], ["recovery", "Recovery"], ["stress", "Stress"], ["alcohol", "Alcohol"]];
   const am = day.am || {};
+  const dueActions = (core.dailyActions || []).filter((a) => (a.text || "").trim() && dueToday(a, date));
+  const did = (day.sheet && day.sheet.did) || {};
+  /* the headline metric of each area in focus — the first one, per AREA_DEFS */
+  const focusMetrics = useMemo(
+    () => focusAreas(core).map((a) => metricsOf(a)[0]).filter(Boolean),
+    [core.areas]
+  );
 
   return (
     <div>
@@ -1215,7 +1351,7 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
       </div>
 
       {mode === "morning" ? (
-        <Morning day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey}
+        <Morning day={day} prevDay={prevDay} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey}
           index={index} ai={ai} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />
       ) : (
         <>
@@ -1237,6 +1373,8 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
             )}
             <Rule style={{ marginTop: 20 }} />
           </div>
+
+          <Closeout day={day} setD={setD} />
 
           <Section label="Tonight">
             {answers.map((a, i) => (
@@ -1260,14 +1398,38 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
 
           <Anchors day={day} core={core} setD={setD} setC={setC} evening />
 
-          <Section label="Discipline" note="the promises you made yourself">
-            {(core.nonNegotiables || []).filter((n) => n.label).map((n) => (
-              <div key={n.id} style={{ fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, color: C.ink45, padding: "9px 0", lineHeight: 1.5 }}>{n.label}</div>
-            ))}
-            <div style={{ paddingTop: 12 }}>
+          {/* One list, one place to tick it. This used to read out a second
+              array also called "Non-negotiables" that nothing else touched. */}
+          <Section label="Discipline" note={dueActions.length ? `${dueActions.filter((a) => did[a.id]).length} of ${dueActions.length}` : "the promises you made yourself"}>
+            {dueActions.length === 0 ? (
+              <Empty>Nothing set for today. The list lives on the daily sheet, in Areas → Character.</Empty>
+            ) : dueActions.map((a, i) => {
+              const on = !!did[a.id];
+              return (
+                <Tap key={a.id} onClick={() => setD(["sheet", "did"], { ...did, [a.id]: !on })}
+                  style={{ display: "flex", width: "100%", alignItems: "flex-start", gap: 14, textAlign: "left",
+                    padding: "15px 0", minHeight: 44, borderBottom: i < dueActions.length - 1 ? `1px solid ${C.lineSoft}` : "none" }}>
+                  <span style={{ display: "block", width: 15, height: 1, background: on ? C.accent : C.ink16, marginTop: 13, transition: "background .4s", flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontFamily: SERIF, fontSize: 17.5, fontWeight: 300, lineHeight: 1.5, color: on ? C.ink28 : C.ink70, transition: "color .4s" }}>{a.text}</span>
+                </Tap>
+              );
+            })}
+            <div style={{ paddingTop: 14 }}>
               <Grow serif size={18} value={day.disciplineNote} onChange={(v) => setD(["disciplineNote"], v)} placeholder="Did you keep them? One line." ariaLabel="Discipline note" />
             </div>
           </Section>
+
+          {/* Numbers were only loggable one area screen at a time, so almost
+              nothing got logged and the charts stayed empty. The headline
+              metric of each area in focus, in one row, once a day. */}
+          {focusMetrics.length > 0 && (
+            <Section label="Log" note={`${focusMetrics.length} in focus`}>
+              <div style={{ paddingTop: 8 }}>
+                <MetricLog metrics={focusMetrics} values={day.metrics || {}} onSet={(id, v) => setD(["metrics", id], v)} date={date} />
+              </div>
+              <Note>The rest of each area's numbers live on its own page.</Note>
+            </Section>
+          )}
 
           <div style={{ marginTop: 30 }}>
             {!showBody ? (
@@ -1286,17 +1448,40 @@ function Today({ day, core, lib, setD, setC, setLib, date, todayKey, mode, setMo
               </div>
             )}
           </div>
+
+          {onTalk && (
+            <div style={{ paddingTop: 30 }}>
+              <Ghost onClick={() => onTalk(eveningOpener(day, core))} disabled={!ai}>
+                <span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "Talk it through" : aiWhy}
+              </Ghost>
+            </div>
+          )}
         </>
       )}
+
+      {backup && <BackupLine core={core} date={date} onExport={backup} />}
     </div>
   );
+}
+
+/* Talk arrived cold: it read the archive but not the day in front of him, so
+   opening it meant retyping what he had just written. This hands it the thread. */
+function eveningOpener(day, core) {
+  const bits = [];
+  if (day.intention) bits.push(`This morning I said: ${day.intention}`);
+  const open = (day.priorities || []).filter((p) => (p.t || "").trim() && p.state && p.state !== "done");
+  if (open.length) bits.push(`I didn't get to: ${open.map((p) => p.t.trim()).join("; ")}`);
+  const focus = focusAreas(core).map((a) => a.label);
+  if (focus.length) bits.push(`I'm working on ${focus.join(", ").toLowerCase()} right now.`);
+  bits.push("Help me think about today.");
+  return bits.join(" ");
 }
 
 function Anchors({ day, core, setD, setC, evening }) {
   const done = ANCHORS.filter((a) => day.anchors[a.id]).length;
   const names = core.names || {};
   return (
-    <Section label="Anchors" note={done > 0 ? `${done} of 6 honored` : evening ? "what held?" : "reminders, not chores"}>
+    <Section label="Anchors" note={done > 0 ? `${done} of ${ANCHORS.length} honored` : evening ? "what held?" : "reminders, not chores"}>
       {ANCHORS.map((a, i) => {
         const on = !!day.anchors[a.id];
         const label = a.id === "wife" ? names.wife || "Sara" : a.id === "daughter" ? names.daughter || "Margo" : a.label;
@@ -1967,11 +2152,13 @@ function Becoming({ core, setC, index, ai, aiWhy, date, embedded }) {
   return (
     <div>
       {!embedded && (
-        <Title sub={tab === "identity" ? "Not scored. Checked against the record." : tab === "goals" ? "Four areas. No more." : "Three things you don't negotiate."}>
-          {tab === "identity" ? "Who I'm becoming" : tab === "goals" ? "Goals" : "Discipline"}
+        <Title sub={tab === "identity" ? "Not scored. Checked against the record." : "Four areas. No more."}>
+          {tab === "identity" ? "Who I'm becoming" : "Goals"}
         </Title>
       )}
-      <Segment options={[{ id: "identity", label: "Identity" }, { id: "goals", label: "Goals" }, { id: "discipline", label: "Discipline" }]} value={tab} onChange={setTab} />
+      {/* Discipline used to be a third tab here, editing a second list also
+          called "Non-negotiables". It lives on the daily sheet now. */}
+      <Segment options={[{ id: "identity", label: "Identity" }, { id: "goals", label: "Goals" }]} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
 
       <div key={tab} className="tj-reveal">
@@ -2055,43 +2242,23 @@ function Becoming({ core, setC, index, ai, aiWhy, date, embedded }) {
           );
         })}
 
-        {tab === "discipline" && (
-          <Section label="Non-negotiables" note="three, no more" top={24}>
-            {(core.nonNegotiables || []).map((n, i) => (
-              <div key={n.id} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "20px 0", borderBottom: `1px solid ${C.lineSoft}` }}>
-                <span style={{ fontFamily: SANS, fontSize: 11, color: C.ink16, marginTop: 7, letterSpacing: "0.1em" }}>{pad(i + 1)}</span>
-                <div style={{ flex: 1 }}>
-                  <Grow serif size={19} value={n.label} ariaLabel="Non-negotiable"
-                    onChange={(v) => setC("nonNegotiables", core.nonNegotiables.map((x) => (x.id === n.id ? { ...x, label: v } : x)))}
-                    placeholder="What you don't negotiate with yourself about." />
-                </div>
-                <Tap onClick={() => setC("nonNegotiables", core.nonNegotiables.filter((x) => x.id !== n.id))} style={{ color: C.ink16, fontSize: 13, padding: "8px 0 8px 8px" }} aria="Remove">×</Tap>
-              </div>
-            ))}
-            {(core.nonNegotiables || []).length < 3 && (
-              <Ghost onClick={() => setC("nonNegotiables", [...core.nonNegotiables, { id: uid(), label: "" }])}>
-                <span style={{ color: C.accent, marginRight: 8 }}>+</span>Add one
-              </Ghost>
-            )}
-            <Note>You mark these each evening. They show up in the weekly synthesis, not as a streak.</Note>
-          </Section>
-        )}
       </div>
     </div>
   );
 }
 
 /* ══════════ REVIEW — looking back, in one place ═══════════ */
+/* Nine sections became five, and then Review quietly rebuilt nine inside
+   itself: seven tabs, three of which were the same act — the model reading the
+   record back. Three now. Looking back is one scroll with a week/month range;
+   the readings sit under the synthesis where they belong, not beside it. */
 function Review({ lib, setLib, index, core, setC, date, ai, aiWhy, week, setWeek, month, setMonth }) {
-  const [tab, setTab] = useState("insights");
+  const [tab, setTab] = useState("back");
+  const [scope, setScope] = useState("week");
   const themes = useMemo(() => countThemes(index), [index]);
   const opts = [
-    { id: "insights", label: "Insights" },
-    { id: "blind", label: "Blind spots" },
-    { id: "experiments", label: "Experiments" },
+    { id: "back", label: "Looking back" },
     { id: "decisions", label: "Decisions" },
-    { id: "week", label: "Week" },
-    { id: "month", label: "Month" },
     { id: "level", label: "Level check" },
   ];
   return (
@@ -2100,12 +2267,26 @@ function Review({ lib, setLib, index, core, setC, date, ai, aiWhy, week, setWeek
       <Segment options={opts} value={tab} onChange={setTab} />
       <Rule style={{ marginTop: 6 }} />
       <div key={tab} className="tj-reveal">
-        {tab === "insights" && <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} aiWhy={aiWhy} />}
-        {tab === "blind" && <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} />}
-        {tab === "experiments" && <Experiments lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} />}
+        {tab === "back" && (
+          <>
+            <div className="tj-range" style={{ paddingTop: 16 }}>
+              {[["week", "This week"], ["month", "This month"]].map(([v, l]) => (
+                <Tap key={v} onClick={() => setScope(v)}
+                  style={{ fontFamily: SANS, fontSize: 12.5, padding: "10px 0", minHeight: 44,
+                    color: scope === v ? C.accent : C.ink28, transition: "color .3s" }}>{l}</Tap>
+              ))}
+            </div>
+            <div key={scope}>
+              {scope === "week"
+                ? <Synthesis scope="week" record={week} setRecord={setWeek} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />
+                : <Synthesis scope="month" record={month} setRecord={setMonth} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
+            </div>
+            <Insights lib={lib} setLib={setLib} index={index} themes={themes} ai={ai} aiWhy={aiWhy} />
+            <BlindSpots lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} />
+            <Experiments lib={lib} setLib={setLib} index={index} ai={ai} aiWhy={aiWhy} date={date} />
+          </>
+        )}
         {tab === "decisions" && <Judgment lib={lib} setLib={setLib} date={date} embedded />}
-        {tab === "week" && <Synthesis scope="week" record={week} setRecord={setWeek} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
-        {tab === "month" && <Synthesis scope="month" record={month} setRecord={setMonth} index={index} date={date} ai={ai} lib={lib} setLib={setLib} />}
         {tab === "level" && <LevelCheck core={core} setC={setC} index={index} date={date} />}
       </div>
     </div>
@@ -2226,14 +2407,14 @@ function MetricLog({ metrics, values, onSet, date }) {
   );
 }
 
-function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, open, setOpen, series }) {
+function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, open, setOpen, series, onTalk }) {
   const areas = liveAreas(core);
   const focus = focusAreas(core);
 
   if (open) {
     const area = areas.find((a) => a.id === open);
     if (area) return <Area area={area} core={core} setC={setC} day={day} setD={setD} index={index}
-      lib={lib} setLib={setLib} ai={ai} aiWhy={aiWhy} date={date} back={() => setOpen(null)} series={series} />;
+      lib={lib} setLib={setLib} ai={ai} aiWhy={aiWhy} date={date} back={() => setOpen(null)} series={series} onTalk={onTalk} />;
   }
 
   const setState = (id, state) => {
@@ -2313,7 +2494,17 @@ function Areas({ core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, ope
   );
 }
 
-function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, back, series }) {
+/* Carries the area's own words across so Talk does not open on a blank prompt
+   he has to fill in again. */
+function areaOpener(area) {
+  const bits = [`I want to talk about ${area.label.toLowerCase()}.`];
+  if (area.stands) bits.push(`Where it stands: ${area.stands}`);
+  if (area.better) bits.push(`Better would look like: ${area.better}`);
+  if (area.next) bits.push(`The next move I wrote: ${area.next}`);
+  return bits.join(" ");
+}
+
+function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date, back, series, onTalk }) {
   const [thread, setThread] = useState(null);
   const [busy, setBusy] = useState(false);
   const [range, setRange] = useState(30);
@@ -2478,6 +2669,11 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
         ) : (
           <Ghost onClick={readBack} disabled={!ai}><span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? "What do you notice?" : aiWhy}</Ghost>
         )}
+        {onTalk && (
+          <Ghost onClick={() => onTalk(areaOpener(area))} disabled={!ai}>
+            <span style={{ color: C.accent, marginRight: 8 }}>—</span>{ai ? `Talk about ${area.label.toLowerCase()}` : aiWhy}
+          </Ghost>
+        )}
       </Section>
 
       {area.id === "mind" && (
@@ -2491,7 +2687,7 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
         </Section>
       )}
       {area.id === "character" && (
-        <Section label="Becoming" note="identity, goals, the non-negotiables" top={34}>
+        <Section label="Becoming" note="identity and goals" top={34}>
           <Becoming core={core} setC={setC} index={index} ai={ai} aiWhy={aiWhy} date={date} embedded />
         </Section>
       )}
@@ -2500,11 +2696,27 @@ function Area({ area, core, setC, day, setD, index, lib, setLib, ai, aiWhy, date
 }
 
 /* ══════════ TALK ══════════════════════════════════════════ */
-function Talk({ talk, setTalk, index, ai, aiWhy }) {
+function Talk({ talk, setTalk, index, ai, aiWhy, day, core, date, seed, onSeeded }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const endRef = useRef(null);
+  const sent = useRef("");
   const msgs = (talk && talk.messages) || [];
+
+  /* What he wrote today, and what he has chosen to work on. Without it Talk
+     reads years of archive and nothing about the day he is actually in. */
+  const todayContext = useMemo(() => {
+    if (!day) return "";
+    const bits = [];
+    if (day.intention) bits.push(`Who he said he wanted to be today: ${day.intention}`);
+    const g = ((day.am || {}).gratitude || []).filter((x) => (x || "").trim());
+    if (g.length) bits.push(`Grateful for: ${g.join("; ")}`);
+    const three = (day.priorities || []).filter((p) => (p.t || "").trim());
+    if (three.length) bits.push(`His three for today: ${three.map((p) => `${p.t.trim()}${p.state ? ` (${p.state})` : ""}`).join("; ")}`);
+    const focus = focusAreas(core || {}).map((a) => `${a.label}${a.next ? ` — next move: ${a.next}` : ""}`);
+    if (focus.length) bits.push(`Areas he has in focus this season: ${focus.join("; ")}`);
+    return bits.length ? `\n\nToday is ${longDate(date)}. ${bits.join(". ")}.` : "";
+  }, [day, core, date]);
 
   useEffect(() => {
     const el = endRef.current;
@@ -2522,7 +2734,7 @@ function Talk({ talk, setTalk, index, ai, aiWhy }) {
     setBusy(true);
     try {
       const out = await askModel({
-        system: `${VOICE}\n\nYou are in conversation with TJ. Keep replies short — three or four sentences unless he asks for more. Ask one question at a time. If it is not clear what he wants, ask whether he wants advice, a question, or space to think, and then do that one thing. When something he says contradicts an earlier entry, say so and name the date.\n\nHis entries, oldest first:\n${digest(index, 110)}`,
+        system: `${VOICE}\n\nYou are in conversation with TJ. Keep replies short — three or four sentences unless he asks for more. Ask one question at a time. If it is not clear what he wants, ask whether he wants advice, a question, or space to think, and then do that one thing. When something he says contradicts an earlier entry, say so and name the date.\n\nHis entries, oldest first:\n${digest(index, 110)}${todayContext}`,
         messages: next.map((m) => ({ role: m.role, content: m.content })),
         maxTokens: 700,
       });
@@ -2532,6 +2744,17 @@ function Talk({ talk, setTalk, index, ai, aiWhy }) {
     }
     setBusy(false);
   };
+
+  /* Sent once. Guarding on the text rather than a boolean means arriving from
+     the same button twice in a day does not fire twice, and arriving from a
+     different one does. */
+  useEffect(() => {
+    if (!seed || !ai || busy) return;
+    if (sent.current === seed) return;
+    sent.current = seed;
+    send(seed);
+    if (onSeeded) onSeeded();
+  }, [seed, ai]);
 
   const openers = ["What's been on your mind?", "Tell me what I keep missing about you.", "I want to think out loud."];
 
@@ -2627,7 +2850,7 @@ function ApiKeyField({ apiKey, onChange }) {
   );
 }
 
-function Settings({ core, setC, apiKey, onApiKeyChange, onExport, onImport, close }) {
+function Settings({ core, setC, apiKey, onApiKeyChange, onExport, onImport, close, today }) {
   const [tab, setTab] = useState("morning");
   const [newPrompt, setNewPrompt] = useState("");
   const [which, setWhich] = useState("morning");
@@ -2741,9 +2964,18 @@ function Settings({ core, setC, apiKey, onApiKeyChange, onExport, onImport, clos
               <ApiKeyField apiKey={apiKey} onChange={onApiKeyChange} />
               <Note>Stored on this device only, sent to no one but api.anthropic.com. Without it, every counted and hand-written part of the app still works — the AI features just say so.</Note>
             </div>
-            <Tap onClick={onExport} style={{ display: "block", width: "100%", textAlign: "left", padding: "20px 0", fontFamily: SANS, fontSize: 16, color: C.ink, borderBottom: `1px solid ${C.lineSoft}` }}>
+            <Tap onClick={onExport} style={{ display: "block", width: "100%", textAlign: "left", padding: "20px 0 6px", fontFamily: SANS, fontSize: 16, color: C.ink }}>
               Export everything as JSON
             </Tap>
+            {(() => {
+              const n = backupAge(core, today);
+              const stale = n == null || n >= BACKUP_WARN_DAYS;
+              return (
+                <div style={{ fontFamily: SANS, fontSize: 11.5, letterSpacing: "0.06em", color: stale ? C.accent : C.ink28, paddingBottom: 18, borderBottom: `1px solid ${C.lineSoft}` }}>
+                  {n == null ? "Never backed up" : n === 0 ? "Backed up today" : `Backed up ${n} day${n === 1 ? "" : "s"} ago`}
+                </div>
+              );
+            })()}
             <label className="tj-import">
               Import from a backup
               <input type="file" accept="application/json" style={{ display: "none" }} onChange={(e) => e.target.files && e.target.files[0] && onImport(e.target.files[0])} />
@@ -2767,6 +2999,8 @@ export default function App() {
   const [core, setCore] = useState(null);
   const [lib, setLibState] = useState(null);
   const [day, setDay] = useState(null);
+  /* yesterday, read only, so the morning can carry what the evening left open */
+  const [prevDay, setPrevDay] = useState(null);
   const [journal, setJournal] = useState(null);
   const [week, setWeek] = useState(null);
   const [month, setMonth] = useState(null);
@@ -2778,6 +3012,9 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const [areaOpen, setAreaOpen] = useState(null);
+  /* an opener handed to Talk from somewhere else in the app; Talk sends it once
+     and clears it, so coming back to the section does not re-ask */
+  const [talkSeed, setTalkSeed] = useState("");
   const [series, setSeries] = useState({});
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -2794,7 +3031,9 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        setCore(mergeCore(await S.get("tj:core")));
+        const c0 = mergeCore(await S.get("tj:core"));
+        setCore(c0);
+        if (c0[MIGRATED]) await S.set("tj:core", c0);
         const l = await S.get("tj:lib");
         setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
         const t = await S.get("tj:talk");
@@ -2832,6 +3071,12 @@ export default function App() {
         const k = await S.get("tj:ink:" + date);
         if (!alive) return;
         setInkState(k && k.date === date ? k : { date });
+        /* separate try: yesterday is a read-only convenience, so an unreadable
+           one must not halt today the way an unreadable today does */
+        try {
+          const y = await S.get("tj:day:" + addDays(date, -1));
+          if (alive) setPrevDay(y || null);
+        } catch (e2) { if (alive) setPrevDay(null); }
       } catch (e) {
         /* A day that could not be read must never be saved over. Halt instead
            of rendering an empty one the autosave would then commit. */
@@ -2957,6 +3202,8 @@ export default function App() {
 
   const changeApiKey = (v) => { setApiKey(v); S.set("tj:apikey", v); };
 
+  const startTalk = useCallback((opener) => { setTalkSeed(opener || ""); setView("talk"); }, []);
+
   const exportAll = async () => {
     const keys = await S.list("tj:");
     const bundle = { app: "TJ 3.0", version: 2, exported: new Date().toISOString(), data: {} };
@@ -2971,6 +3218,9 @@ export default function App() {
     a.download = `tj3-${todayKey}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    /* recorded so the app can say how long it has been — the export was
+       previously invisible to everything, including the owner */
+    setC("lastBackup", todayKey);
     setSettings(false);
     flash("Exported");
   };
@@ -2989,7 +3239,9 @@ export default function App() {
           if (!k.startsWith("tj:") || k === "tj:apikey" || v == null) continue;
           if (await S.set(k, v)) wrote += 1; else failed += 1;
         }
-        setCore(mergeCore(await S.get("tj:core")));
+        const c0 = mergeCore(await S.get("tj:core"));
+        setCore(c0);
+        if (c0[MIGRATED]) await S.set("tj:core", c0);
         const l = await S.get("tj:lib");
         setLibState(l ? { ...emptyLib(), ...l } : emptyLib());
         const t = await S.get("tj:talk");
@@ -3049,11 +3301,11 @@ export default function App() {
   const aiWhy = !apiKey ? "Add an API key in Settings → Data" : "Reflection is switched off in settings";
 
   const screens = {
-    today: <Today day={day} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} />,
-    areas: <Areas core={core} setC={setC} day={day} setD={setD} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} date={date} open={areaOpen} setOpen={setAreaOpen} series={series} />,
+    today: <Today day={day} prevDay={prevDay} core={core} lib={lib} setD={setD} setC={setC} setLib={setLib} date={date} todayKey={todayKey} mode={mode} setMode={setMode} index={index} ai={aiOn} aiWhy={aiWhy} ink={ink} setInk={setInk} themes={themes} onTalk={startTalk} backup={exportAll} />,
+    areas: <Areas core={core} setC={setC} day={day} setD={setD} index={index} lib={lib} setLib={setLib} ai={aiOn} aiWhy={aiWhy} date={date} open={areaOpen} setOpen={setAreaOpen} series={series} onTalk={startTalk} />,
     journal: <Journal journal={journal} setJournal={setJournal} date={date} setDate={setDate} dates={journalDates} focus={focus} setFocus={setFocus} ink={ink} setInk={setInk} index={index} inkDates={inkDates} core={core} />,
     review: <Review lib={lib} setLib={setLib} index={index} core={core} setC={setC} date={date} ai={aiOn} aiWhy={aiWhy} week={week} setWeek={setWeek} month={month} setMonth={setMonth} />,
-    talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} aiWhy={aiWhy} />,
+    talk: <Talk talk={talk} setTalk={setTalk} index={index} ai={aiOn} aiWhy={aiWhy} day={day} core={core} date={date} seed={talkSeed} onSeeded={() => setTalkSeed("")} />,
   };
 
 
@@ -3097,7 +3349,7 @@ export default function App() {
 
       {settings && (
         <div className="tj-sheet-wrap" onClick={() => setSettings(false)}>
-          <Settings core={core} setC={setC} apiKey={apiKey} onApiKeyChange={changeApiKey} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} />
+          <Settings core={core} setC={setC} apiKey={apiKey} onApiKeyChange={changeApiKey} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} today={todayKey} />
         </div>
       )}
       {toast && <div className="tj-toast">{toast}</div>}
@@ -4038,7 +4290,7 @@ const shows = (freq, dateKey, key) => {
   return v === "often" ? h % 4 !== 0 : h % 3 === 0;
 };
 
-function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai, aiWhy, ink, setInk, themes }) {
+function Morning({ day, prevDay, core, lib, setD, setC, setLib, date, todayKey, index, ai, aiWhy, ink, setInk, themes }) {
   const am = day.am || {};
   /* The morning was ten fixed steps for everyone, every day, which is why it
      ran long. With a season chosen it asks about the areas in focus and drops
@@ -4415,6 +4667,7 @@ function Morning({ day, core, lib, setD, setC, setLib, date, todayKey, index, ai
                 </div>
               </div>
             ))}
+            <Carried prev={prevDay} day={day} setD={setD} />
           </Section>
         </div>
       )}

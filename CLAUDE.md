@@ -48,6 +48,8 @@ Eleven areas under four groups: **Foundation** (Body, Money, Home, Play & rest),
 - **The level check** is the revisit loop: his own words from last time set beside what he would write today, then a forced re-choice of the three. The delta is the point, not a score. It reuses the `identity.versions` pattern.
 - Areas read their own id **plus their legacy section names** (`AREA_SECS`), so entries indexed before the restructure stay visible.
 
+`ANCHORS` is the one list that still has not been folded into `AREA_DEFS`. Its sixth entry — "Sales — improve judgment, not just activity" — was left over from the removed sales surfaces and is gone; `day.anchors.sales` stays in storage and in the export. The remaining five still overlap the areas (Discipline against the sheet's non-negotiables, Health against Body). That is a real duplication and it has not been resolved. Do not paper over it; propose the fold.
+
 `day.body`, `day.wife`, `day.daughter` and `day.faith` keep their existing shape and paths. Areas are a view over them, not a migration of them — which is why nothing written before the restructure had to move.
 
 ## The daily sheet
@@ -56,6 +58,7 @@ Modelled on the paper goal sheet TJ uses. Its mechanic is not "set goals" — it
 
 - `core.lifeGoals` are written as facts, not targets. "I make $74,000 a month" does different work than "reach $74k". Do not rephrase them into targets.
 - `core.dailyActions` carry a cadence — *every day* or *Monday–Friday*. The distinction is from the sheet and it matters: some things do not happen on a Saturday, and pretending otherwise just manufactures a broken streak.
+- **`dailyActions` is the only non-negotiables list.** There used to be a second, `core.nonNegotiables`, edited in a Discipline tab and read out in the evening — same name, same idea, a different record nothing else touched. That is what "I don't really understand what I do regardless" was. It folds into `dailyActions` once, on load, keyed by `disciplineMerged`; the old array stays in storage and in the export. Ticked in the morning on the sheet, ticked or reviewed in the evening, both writing `day.sheet.did`. Do not add a third.
 - The rewrite happens in the morning (`DailySheet`), typed or by hand. The Pencil is the truer version; the paper sheet is handwritten.
 - What was written files into Character under "Written again today", so the run of consecutive days is counted from the record rather than stored as a score.
 - Editing the sheet lives in Areas → Character, not in the morning. The morning is for doing it.
@@ -78,6 +81,21 @@ A **scripture verse** (World English Bible, public domain) and a **Stoic passage
 - `FREQ_DEFAULT` and `FREQ_VERSION` carry this. Bump the version when the defaults change meaningfully, or a saved `freq` from the long morning will keep the chore.
 
 Do not add a step without taking one away, and do not add a question that could be answered with the same sentence as an existing one.
+
+## The day closes
+
+Three things were written every morning and nothing ever asked whether they happened. Without that, the app has no record of follow-through and the next morning has nothing to carry.
+
+- **The evening marks the three**: *Did it*, *Moved it*, *Didn't*, on `p.state`. Not a score — "0 of 3" counts only what was done, and a thing you moved is information, not a failure.
+- **The morning offers back what was left open**, under "Left open yesterday", with one tap to put it in an empty slot. It is never auto-filled: a thing moved three days running is something he should see himself doing.
+- Yesterday is loaded read-only as `prevDay`. An unreadable yesterday must not halt today the way an unreadable today does.
+- **The evening ticks the non-negotiables and logs the numbers.** The headline metric of each area in focus — the first in its `metrics` — sits in one row in the evening. Logging only from inside an area screen meant three separate visits, so nothing got logged and the charts stayed empty.
+
+## Review and Talk
+
+**Review is three tabs.** Nine sections became five, and Review promptly rebuilt nine inside itself: Insights, Blind spots, Experiments, Decisions, Week, Month, Level check — three of which were the same act, the model reading the record back. Now: **Looking back** (the synthesis, with a *This week* / *This month* range, and the three readings stacked under it in one scroll), **Decisions**, **Level check**. A reading is not a peer of the week it belongs to.
+
+**Talk knows the day.** It read years of archive and nothing about the day in front of him, so using it meant retyping what he had just written. Its system prompt now carries today's intention, gratitude, the three and their state, and the areas in focus with their next moves. There are ways in from the evening ("Talk it through") and from any area screen ("Talk about work"), each handing it an opener built from his own words. With no key they degrade like every other AI affordance — the button says why.
 
 ## Metrics and charts
 
@@ -136,7 +154,11 @@ The source calls `window.storage.get/set/list` through the `S` helper. That API 
 
 Everything written lives on one device. Clearing website data, resetting the iPad, or Safari storage eviction would destroy years of journaling. The existing manual JSON export is not sufficient protection.
 
-Propose and implement a real answer before the app is relied on. Evaluate and recommend among: scheduled automatic export to the Files app; an iCloud Drive folder picked once; a quiet but unavoidable "last backed up N days ago" indicator; optional sync that requires no server to maintain.
+**Built: the indicator.** `core.lastBackup` is stamped on every export. One line sits at the foot of every day — "Backed up 3 days ago", or the accent-orange "Not backed up in 21 days — export now", or "Never backed up" — and exports on tap. Quiet because it is one line in `ink16`; unavoidable because he reaches the bottom of the evening every night. `BACKUP_WARN_DAYS` is 14. Settings → Data repeats it under the export.
+
+Still open, and worth doing: scheduled automatic export to the Files app; an iCloud Drive folder picked once; optional sync that requires no server to maintain.
+
+**Migrations must reach disk.** `useSave` skips the first render, so a `mergeCore` migration used to live only in memory: the next load redid it, and anything keyed off ids it generated broke between sessions. `mergeCore` sets a `MIGRATED` Symbol — a Symbol so `JSON.stringify` drops it and it never reaches storage — and the loader commits the record once.
 
 Also handle the ordinary cases: refresh, PWA close and reopen, orientation change, remount, and the existing debounced saves (700ms for records, 1400ms for the index). Autosave must never interrupt an active stroke. Destructive actions must not be one accidental tap away.
 
