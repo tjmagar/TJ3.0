@@ -485,5 +485,82 @@ ok("each area carries its own colour", (await page.evaluate(() => {
   ok("an area offers a way into Talk", /Talk about body|Add an API key/.test(areaText));
 }
 
+/* 25. He added a photograph in the morning and picked the wrong one. Fixing it
+   has to be possible where he made the mistake, and taking it back has to be
+   possible at all — nothing in the app could be undone before this. */
+{
+  const swapIn = path.join(os.tmpdir(), "tj-vision-swap.png");
+  fs.writeFileSync(swapIn, Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFklEQVR42mNk+M/wn4EIwDiqkL4KAd0lB/1U8HHkAAAAAElFTkSuQmCC", "base64"));
+
+  await page.click('.tj-navitem:text-is("Today")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-seg .tj-tap:text-is("Morning")').catch(() => {});
+  await page.waitForTimeout(500);
+
+  await page.click('.tj-main .tj-tap:text-is("Edit")');
+  await page.waitForTimeout(350);
+  const x = await page.$(".tj-vx");
+  ok("the morning board can be edited where he added the photo", !!x);
+  const box = x ? await x.boundingBox() : { width: 0, height: 0 };
+  ok(`the remove target is at least 44pt (${Math.round(box.width)}x${Math.round(box.height)})`,
+    Math.round(box.width) >= 44 && Math.round(box.height) >= 44);
+  const disc = await page.$eval(".tj-vxdisc", (e) => getComputedStyle(e).color);
+  ok(`the remove mark is actually visible (${disc})`, disc === "rgb(255, 246, 236)");
+
+  // replacing keeps the card and its wording, swapping only the picture
+  const before = await page.$eval(".tj-vshot", (e) => getComputedStyle(e).backgroundImage);
+  const label = await page.$eval(".tj-vhlabel", (e) => e.textContent).catch(() => "");
+  // the slot holding today's lead, not whichever happens to be first
+  await page.setInputFiles('.tj-vslot .tj-vthumb.tj-on input[type="file"]', swapIn);
+  await page.waitForTimeout(1400);
+  const after = await page.$eval(".tj-vshot", (e) => getComputedStyle(e).backgroundImage);
+  const stillNamed = await page.$eval(".tj-vhlabel", (e) => e.textContent).catch(() => "");
+  ok("replacing swaps the picture and keeps what he called it", after !== before && stillNamed === label);
+
+  // removing offers it back
+  await page.click(".tj-vx");
+  await page.waitForTimeout(500);
+  const toast = (await page.textContent(".tj-toast")) || "";
+  ok(`a removal offers an undo (${JSON.stringify(toast.trim())})`, /removed/i.test(toast) && /Undo/.test(toast));
+  const thumbs = () => page.$$eval(".tj-vthumb:not(.tj-vplus)", (n) => n.length);
+  const afterRemove = await thumbs();
+  await page.click('.tj-toast .tj-tap:text-is("Undo")');
+  await page.waitForTimeout(700);
+  const afterUndo = await thumbs();
+  ok(`undo puts the photo back (${afterRemove} -> ${afterUndo} on the strip)`, afterUndo === afterRemove + 1);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".tj-nav", { timeout: 10000 });
+  await page.waitForTimeout(1200);
+  ok("and the restored photo survives a reload", (await page.$$(".tj-vshot")).length === 1);
+}
+
+/* 26. The undo is not a one-off for photographs — every delete that destroys
+   something written offers it back. */
+{
+  await page.click('.tj-navitem:text-is("Areas")');
+  await page.waitForTimeout(400);
+  await page.click('.tj-main >> text=Character');
+  await page.waitForTimeout(900);
+  const goalBefore = await page.$$eval('[aria-label="Life goal"]', (n) => n.length);
+  const removes = await page.$$('.tj-main .tj-tap[aria-label="Remove"]');
+  if (removes.length) {
+    await removes[0].click();
+    await page.waitForTimeout(500);
+    const t = (await page.textContent(".tj-toast")) || "";
+    ok(`removing a life goal offers an undo (${JSON.stringify(t.trim())})`, /removed/i.test(t) && /Undo/.test(t));
+    await page.click('.tj-toast .tj-tap:text-is("Undo")');
+    await page.waitForTimeout(700);
+    const goalAfter = await page.$$eval('[aria-label="Life goal"]', (n) => n.length);
+    ok(`undo restores the life goal (${goalBefore} -> ${goalAfter})`, goalAfter === goalBefore);
+  } else {
+    ok("removing a life goal offers an undo", false);
+  }
+
+  // and it clears itself rather than sitting there forever
+  await page.waitForTimeout(7000);
+  ok("the undo toast clears itself", (await page.$$(".tj-toast")).length === 0);
+}
+
 console.log(errors.length ? `\nCONSOLE ERRORS (${errors.length}):\n` + errors.join("\n") : "\nno console errors");
 await browser.close();

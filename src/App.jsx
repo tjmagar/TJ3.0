@@ -113,6 +113,19 @@ export const S = {
 const flushers = new Set();
 const flushAllWrites = () => { for (const f of Array.from(flushers)) f(); };
 
+/* Nothing written could be taken back. Every × was final, and the obvious
+   alternative — a confirmation on each one — puts a dialog in front of a man
+   tidying his own list, which is not what a confirmation is for. So the delete
+   happens immediately and the toast offers it back for a few seconds.
+
+   A module-level sink rather than a prop threaded through thirty components,
+   the same shape `flushers` already uses. App claims it on mount. Anything
+   before that (or after an unmount) simply deletes, which is today's behaviour. */
+let undoSink = null;
+const offerUndo = (label, restore) => {
+  if (undoSink) undoSink(label, restore);
+};
+
 /* ── themes: a counted layer, no model involved ───────────── */
 const THEMES = [
   { id: "patience", areaId: "character", label: "Patience", words: ["impatient","impatience","short","snapped","sharp","irritat","frustrat","annoyed","temper","reactive","edge","curt","tone"] },
@@ -1632,7 +1645,7 @@ function Journal({ journal, setJournal, date, setDate, dates, focus, setFocus, i
                         style={{ display: "block", width: "100%", textAlign: "left", paddingTop: 10 }}>
                         <div style={{ fontFamily: SERIF, fontSize: 18, fontWeight: 300, color: C.ink70, lineHeight: 1.68, whiteSpace: "pre-wrap" }}>{preview}</div>
                       </Tap>
-                      <Tap onClick={() => setJournal({ ...journal, entries: entries.filter((x) => x.id !== e.id) })}
+                      <Tap onClick={() => { const prev = entries; setJournal((j) => ({ ...j, entries: prev.filter((x) => x.id !== e.id) })); offerUndo("Entry removed", () => setJournal((j) => ({ ...j, entries: prev }))); }}
                         style={{ fontFamily: SANS, fontSize: 11.5, color: C.ink16, padding: "14px 0 0", letterSpacing: "0.05em", minHeight: 44 }}>Delete</Tap>
                     </div>
                   );
@@ -1840,7 +1853,7 @@ function Experiments({ lib, setLib, index, ai, aiWhy, date }) {
           meta={(r) => r.status || "Proposed"}
           onAdd={() => { const id = uid(); setLib("experiments", [{ id, created: date, started: date, days: 7, title: "", status: "Proposed" }, ...live]); return id; }}
           onChange={(id, k, v) => setLib("experiments", live.map((x) => (x.id === id ? { ...x, [k]: v, ...(k === "status" && v === "Running" ? { started: date } : {}) } : x)))}
-          onDelete={(id) => setLib("experiments", live.filter((x) => x.id !== id))}
+          onDelete={(id) => { const prev = live; setLib("experiments", prev.filter((x) => x.id !== id)); offerUndo("Experiment removed", () => setLib("experiments", prev)); }}
         />
       </div>
       {busy ? <Working label="Looking for something worth testing" /> : (
@@ -1952,7 +1965,7 @@ function Judgment({ lib, setLib, date, embedded }) {
               meta={(d) => verdictOf(d) ? (d.reasoning === "Sound" ? "Sound call" : "Flawed call") : d.review && d.review <= date ? "Review due" : d.review ? midDate(d.review) : ""}
               onAdd={() => { const id = uid(); setLib("decisions", [{ id, created: date, title: "" }, ...lib.decisions]); return id; }}
               onChange={(id, k, v) => setLib("decisions", lib.decisions.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-              onDelete={(id) => setLib("decisions", lib.decisions.filter((x) => x.id !== id))}
+              onDelete={(id) => { const prev = lib.decisions; setLib("decisions", prev.filter((x) => x.id !== id)); offerUndo("Decision removed", () => setLib("decisions", prev)); }}
             />
           </div>
           {lib.decisions.some((d) => verdictOf(d)) && (
@@ -2048,7 +2061,7 @@ function Library({ lib, setLib, index, ai, aiWhy, date, embedded }) {
                     addLabel="Add a book" meta={(b) => b.outcome || ""}
                     onAdd={() => { const id = uid(); setLib("books", [{ id, created: date, title: "", status: s }, ...lib.books]); return id; }}
                     onChange={(id, k, v) => setLib("books", lib.books.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-                    onDelete={(id) => setLib("books", lib.books.filter((x) => x.id !== id))} />
+                    onDelete={(id) => { const prev = lib.books; setLib("books", prev.filter((x) => x.id !== id)); offerUndo("Book removed", () => setLib("books", prev)); }} />
                 </div>
               </Section>
             ))}
@@ -2061,7 +2074,7 @@ function Library({ lib, setLib, index, ai, aiWhy, date, embedded }) {
                     addLabel="Add a book"
                     onAdd={() => { const id = uid(); setLib("books", [{ id, created: date, title: "", status: "Want to read" }]); return id; }}
                     onChange={(id, k, v) => setLib("books", lib.books.map((x) => (x.id === id ? { ...x, [k]: v } : x)))}
-                    onDelete={(id) => setLib("books", lib.books.filter((x) => x.id !== id))} />
+                    onDelete={(id) => { const prev = lib.books; setLib("books", prev.filter((x) => x.id !== id)); offerUndo("Book removed", () => setLib("books", prev)); }} />
                 </div>
               </Section>
             )}
@@ -2099,7 +2112,7 @@ function Library({ lib, setLib, index, ai, aiWhy, date, embedded }) {
                   <Mark kind={k.src === "generated" ? "generated" : "you"} detail={midDate(k.created)} />
                 </div>
                 <div style={{ fontFamily: SERIF, fontSize: 18.5, fontWeight: 300, color: C.ink, lineHeight: 1.6, marginTop: 10, whiteSpace: "pre-wrap" }}>{k.text}</div>
-                <Tap onClick={() => setLib("kb", lib.kb.filter((x) => x.id !== k.id))} style={{ fontFamily: SANS, fontSize: 11.5, color: C.ink16, padding: "12px 0 0", letterSpacing: "0.05em" }}>Delete</Tap>
+                <Tap onClick={() => { const prev = lib.kb; setLib("kb", prev.filter((x) => x.id !== k.id)); offerUndo("Removed", () => setLib("kb", prev)); }} style={{ fontFamily: SANS, fontSize: 11.5, color: C.ink16, padding: "12px 0 0", letterSpacing: "0.05em" }}>Delete</Tap>
               </div>
             ))}
           </Section>
@@ -2177,7 +2190,7 @@ function Becoming({ core, setC, index, ai, aiWhy, date, embedded }) {
                         onChange={(v) => reviseStatement(s, v)}
                         placeholder="I am the kind of person who…" style={{ lineHeight: 1.45 }} />
                     </div>
-                    <Tap onClick={() => setC("identity", core.identity.filter((x) => x.id !== s.id))} style={{ color: C.ink16, fontSize: 13, padding: "8px 0 8px 8px" }} aria="Remove">×</Tap>
+                    <Tap onClick={() => { const prev = core.identity; setC("identity", prev.filter((x) => x.id !== s.id)); offerUndo("Statement removed", () => setC("identity", prev)); }} style={{ color: C.ink16, fontSize: 13, padding: "8px 0 8px 8px" }} aria="Remove">×</Tap>
                   </div>
 
                   {(s.versions || []).length > 0 && (
@@ -2236,7 +2249,7 @@ function Becoming({ core, setC, index, ai, aiWhy, date, embedded }) {
                   addLabel={`Add a ${area.toLowerCase()} goal`} meta={(r) => (r.target ? midDate(r.target) : "")}
                   onAdd={() => { const id = uid(); setC("goals", [...core.goals, { id, area, created: date, title: "", progress: 0 }]); return id; }}
                   onChange={(id, k, v) => setC("goals", core.goals.map((g) => (g.id === id ? { ...g, [k]: v } : g)))}
-                  onDelete={(id) => setC("goals", core.goals.filter((g) => g.id !== id))} />
+                  onDelete={(id) => { const prev = core.goals; setC("goals", prev.filter((g) => g.id !== id)); offerUndo("Goal removed", () => setC("goals", prev)); }} />
               </div>
             </Section>
           );
@@ -3018,7 +3031,7 @@ export default function App() {
   const [series, setSeries] = useState({});
   const [settings, setSettings] = useState(false);
   const [focus, setFocus] = useState(false);
-  const [toast, setToast] = useState("");
+  const [toast, setToast] = useState(null);
   const [journalDates, setJournalDates] = useState([]);
 
   const wkKey = weekKeyOf(date);
@@ -3026,7 +3039,19 @@ export default function App() {
   const dusk = (view === "today" && mode === "evening") || view === "talk";
   const dawn = view === "today" && mode === "morning";
 
-  const flash = useCallback((m) => { setToast(m); setTimeout(() => setToast(""), 2400); }, []);
+  const toastTimer = useRef(null);
+  const showToast = useCallback((text, undo, ms) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ text, undo });
+    toastTimer.current = setTimeout(() => setToast(null), ms);
+  }, []);
+  const flash = useCallback((m) => showToast(m, null, 2400), [showToast]);
+  /* Long enough to notice and reach for on an iPad, short enough that it is
+     gone before the next thing he does. */
+  useEffect(() => {
+    undoSink = (label, restore) => showToast(label, restore, 6500);
+    return () => { undoSink = null; };
+  }, [showToast]);
 
   useEffect(() => {
     (async () => {
@@ -3352,7 +3377,17 @@ export default function App() {
           <Settings core={core} setC={setC} apiKey={apiKey} onApiKeyChange={changeApiKey} onExport={exportAll} onImport={importAll} close={() => setSettings(false)} today={todayKey} />
         </div>
       )}
-      {toast && <div className="tj-toast">{toast}</div>}
+      {toast && (
+        <div className="tj-toast">
+          <span>{toast.text}</span>
+          {toast.undo && (
+            <Tap onClick={() => { toast.undo(); setToast(null); }}
+              style={{ fontFamily: SANS, fontSize: 13, color: C.accent, padding: "4px 0 4px 18px", letterSpacing: "0.04em" }}>
+              Undo
+            </Tap>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -3558,12 +3593,31 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 }
 .tj-vstrip { display: flex; gap: 8px; margin-top: 8px; }
 .tj-vthumb {
-  flex: 1; height: 54px; border-radius: 9px;
+  flex: 1 1 0; max-width: 132px; height: 54px; border-radius: 9px;
   background-size: cover; background-position: center;
   border: 1px solid var(--glassLine); opacity: .48;
   transition: opacity .3s ease, border-color .3s ease;
 }
 .tj-vthumb.tj-on { opacity: 1; border-color: var(--accent); }
+.tj-vslot { position: relative; flex: 1 1 0; max-width: 132px; display: flex; }
+.tj-vslot .tj-vthumb { flex: 1; cursor: pointer; max-width: none; }
+/* Inside the tile rather than floating off its corner, where the hero above
+   clipped it. Scoped through .tj-vslot on purpose: .tj-tap sets color to
+   inherit and background to none, and is declared further down, so a bare
+   .tj-vx loses at equal specificity and the control renders invisible. */
+.tj-vslot .tj-vx {
+  position: absolute; top: -5px; right: -5px; z-index: 2;
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+}
+/* The target is 44, the mark it draws is 26 — a thumbnail is 54 tall and a
+   disc that size would swallow it. */
+.tj-vslot .tj-vxdisc {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(10,8,6,0.80); border: 1px solid rgba(255,246,236,0.40);
+  color: #FFF6EC; font-family: ${SANS}; font-size: 14px; line-height: 1;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
 .tj-vplus {
   flex: 0 0 54px; display: flex; align-items: center; justify-content: center;
   cursor: pointer; opacity: 1; background: var(--glass); color: var(--accent);
@@ -3653,6 +3707,7 @@ body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; 
 
 .tj-toast {
   position: fixed; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; max-width: calc(100vw - 32px);
   bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 70;
   background: rgba(30,36,40,0.78); color: var(--ink); font-family: ${SANS}; font-size: 13px;
   padding: 12px 22px; border-radius: 40px; border: 1px solid var(--glassLine);
@@ -4934,7 +4989,7 @@ function VisionBoard({ core, setC, editable }) {
                       onChange={(t) => set(v.id, { note: t })} placeholder="The detail that makes it specific"
                       color={C.ink45} />
                   </div>
-                  <Tap onClick={() => setC("vision", items.filter((x) => x.id !== v.id))} aria="Remove"
+                  <Tap onClick={() => { const prev = items; setC("vision", prev.filter((x) => x.id !== v.id)); offerUndo("Card removed", () => setC("vision", prev)); }} aria="Remove"
                     style={{ color: C.ink16, fontSize: 13, padding: "8px 0 8px 6px", minHeight: 44 }}>×</Tap>
                 </div>
               </div>
@@ -5016,6 +5071,9 @@ function VisionHero({ core, setC, date }) {
   const shots = items.filter((v) => v.img);
   const [busy, setBusy] = useState(false);
   const [picked, setPicked] = useState(null);
+  /* He adds photographs here, so he has to be able to fix them here. Off by
+     default because the morning is a reading surface — one word, one tap. */
+  const [editing, setEditing] = useState(false);
 
   const lead = useMemo(() => {
     if (!shots.length) return null;
@@ -5034,6 +5092,27 @@ function VisionHero({ core, setC, date }) {
         : [...items, { id: uid(), label: "", note: "", img }]);
     } catch (e) { /* the picker can hand back something unreadable; stay quiet in the morning */ }
     setBusy(false);
+  };
+
+  /* Swap the picture and keep whatever he named it — picking the wrong shot of
+     the right thing is the ordinary mistake. */
+  const replace = async (id, file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const img = await readImage(file);
+      setC("vision", items.map((v) => (v.id === id ? { ...v, img } : v)));
+    } catch (e) { /* same as add: no error modal in the morning */ }
+    setBusy(false);
+  };
+
+  /* The card goes, its label and note with it, and the toast holds it for a
+     few seconds in case that was the wrong tap. */
+  const remove = (id) => {
+    const prev = items;
+    setC("vision", prev.filter((v) => v.id !== id));
+    if (picked === id) setPicked(null);
+    offerUndo("Photo removed", () => setC("vision", prev));
   };
 
   /* An empty grid of five grey rectangles is a worse greeting than one line,
@@ -5063,18 +5142,42 @@ function VisionHero({ core, setC, date }) {
         </span>
       </div>
       <div className="tj-vstrip">
-        {shots.length > 1 && shots.map((s) => (
-          <Tap key={s.id} onClick={() => setPicked(s.id)} aria={s.label || "Show this one"}
-            className={"tj-vthumb" + (s.id === lead.id ? " tj-on" : "")}
-            style={{ backgroundImage: `url(${s.img})` }} />
+        {(shots.length > 1 || editing) && shots.map((s) => (
+          editing ? (
+            /* the × sits outside the label, or tapping it would also open the
+               picker the label is wired to */
+            <span key={s.id} className="tj-vslot">
+              {/* still marks the one leading today — editing should not hide
+                  which picture he is actually looking at */}
+              <label className={"tj-vthumb" + (s.id === lead.id ? " tj-on" : "")} aria-label={`Replace ${s.label || "photo"}`}
+                style={{ backgroundImage: `url(${s.img})` }}>
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={(e) => replace(s.id, e.target.files && e.target.files[0])} />
+              </label>
+              <Tap className="tj-vx" onClick={() => remove(s.id)} aria={`Remove ${s.label || "photo"}`}>
+                <span className="tj-vxdisc">×</span>
+              </Tap>
+            </span>
+          ) : (
+            <Tap key={s.id} onClick={() => setPicked(s.id)} aria={s.label || "Show this one"}
+              className={"tj-vthumb" + (s.id === lead.id ? " tj-on" : "")}
+              style={{ backgroundImage: `url(${s.img})` }} />
+          )
         ))}
-        {/* adding the next one stays one tap away — editing lives in Character,
-            but he should not have to go there to put a picture on the board */}
+        {/* adding the next one stays one tap away — naming them still lives in
+            Character, but he should not have to go there to fix a picture */}
         <label className="tj-vthumb tj-vplus" aria-label="Add a photo">
           <input type="file" accept="image/*" style={{ display: "none" }}
             onChange={(e) => add(e.target.files && e.target.files[0])} />
           <span>{busy ? "…" : "+"}</span>
         </label>
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 2 }}>
+        <Tap onClick={() => setEditing((e) => !e)}
+          style={{ fontFamily: SANS, fontSize: 10.5, letterSpacing: "0.1em", textTransform: "uppercase",
+            color: editing ? C.accent : C.ink16, padding: "8px 0", minHeight: 44 }}>
+          {editing ? "Done" : "Edit"}
+        </Tap>
       </div>
     </div>
   );
@@ -5094,7 +5197,7 @@ function SheetEditor({ core, setC }) {
                 onChange={(v) => setC("lifeGoals", goals.map((x) => (x.id === g.id ? { ...x, text: v } : x)))}
                 placeholder="I am…" />
             </div>
-            <Tap onClick={() => setC("lifeGoals", goals.filter((x) => x.id !== g.id))} aria="Remove"
+            <Tap onClick={() => { const prev = goals; setC("lifeGoals", prev.filter((x) => x.id !== g.id)); offerUndo("Goal removed", () => setC("lifeGoals", prev)); }} aria="Remove"
               style={{ color: C.ink16, fontSize: 13, padding: "10px 0 10px 8px", minHeight: 44 }}>×</Tap>
           </div>
         ))}
@@ -5120,7 +5223,7 @@ function SheetEditor({ core, setC }) {
                   onChange={(v) => setC("dailyActions", actions.map((x) => (x.id === a.id ? { ...x, text: v } : x)))}
                   placeholder="I…" />
               </div>
-              <Tap onClick={() => setC("dailyActions", actions.filter((x) => x.id !== a.id))} aria="Remove"
+              <Tap onClick={() => { const prev = actions; setC("dailyActions", prev.filter((x) => x.id !== a.id)); offerUndo("Action removed", () => setC("dailyActions", prev)); }} aria="Remove"
                 style={{ color: C.ink16, fontSize: 13, padding: "10px 0 10px 8px", minHeight: 44 }}>×</Tap>
             </div>
             <div style={{ display: "flex", gap: 18, paddingTop: 4 }}>
