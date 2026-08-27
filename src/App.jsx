@@ -4954,6 +4954,58 @@ function VisionBoard({ core, setC, editable }) {
   );
 }
 
+/* Which photograph leads today.
+
+   This was `hashStr(date) % n`, which looks like a rotation and is not one:
+   the hash jumps unevenly across month boundaries, so with six photographs the
+   same one led on days 0, 3 and 6 while another went a fortnight without
+   appearing. Deal instead. Every photograph is shown exactly once before any
+   of them repeats, and the order is reshuffled on each pass — so it stays
+   unpredictable without ever being unfair. Derived from the date, so it needs
+   nothing in storage, never moves during a day, and two devices agree. */
+const VISION_EPOCH = "2020-01-01";
+
+/* mulberry32 — small, fast, and good enough that a shuffle of five items does
+   not visibly favour a position. Seeded, so the same round deals the same way. */
+const seededShuffle = (n, seed) => {
+  const order = Array.from({ length: n }, (_, i) => i);
+  let s = seed | 0;
+  const rnd = () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const tmp = order[i]; order[i] = order[j]; order[j] = tmp;
+  }
+  return order;
+};
+
+const visionRound = (n, round) => {
+  const deal = seededShuffle(n, round * 7919 + n);
+  /* A fresh shuffle can open on the photograph the last one closed with, which
+     reads as "it didn't change" on exactly the morning it was supposed to.
+     Swap the first two rather than rotating: that leaves the last position
+     alone, so the next round can still work this out from the raw shuffle
+     without having to unwind every round before it. */
+  if (deal[0] === seededShuffle(n, (round - 1) * 7919 + n)[n - 1]) {
+    const t = deal[0]; deal[0] = deal[1]; deal[1] = t;
+  }
+  return deal;
+};
+
+export function visionLead(n, date) {
+  if (n <= 1) return 0;
+  const day = daysBetween(VISION_EPOCH, date);
+  /* With two, "shuffled" and "no repeats" leave only strict alternation, and
+     the swap above would move the last element. */
+  if (n === 2) return ((day % 2) + 2) % 2;
+  const round = Math.floor(day / n);
+  return visionRound(n, round)[((day % n) + n) % n];
+}
+
 /* The photos lead the morning, above the greeting, every day. On the paper
    sheet the picture of what you're working toward sits at the top of the page
    — you see it before the day starts, not after scrolling past three prompts.
@@ -4968,7 +5020,7 @@ function VisionHero({ core, setC, date }) {
   const lead = useMemo(() => {
     if (!shots.length) return null;
     const chosen = shots.find((s) => s.id === picked);
-    return chosen || shots[hashStr(date + "vis") % shots.length];
+    return chosen || shots[visionLead(shots.length, date)];
   }, [core.vision, picked, date]);
 
   const add = async (file) => {
