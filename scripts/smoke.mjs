@@ -351,6 +351,37 @@ ok("each area carries its own colour", (await page.evaluate(() => {
 
   // and one tap adds the next photo without leaving Today
   ok("the strip carries an add affordance", (await page.$$('.tj-vplus input[type="file"]')).length === 1);
+
+  /* The lead used to be a weak hash of the date, which clustered — the same
+     photograph three mornings in a week while another went a fortnight unseen.
+     It deals now. Six distinct shots, straight into the record the way the
+     picker leaves them, then walk a fortnight of mornings. */
+  await page.evaluate(async () => {
+    const paint = (h) => {
+      const c = document.createElement("canvas"); c.width = 240; c.height = 150;
+      const g = c.getContext("2d"); g.fillStyle = `hsl(${h} 55% 40%)`; g.fillRect(0, 0, 240, 150);
+      return c.toDataURL("image/jpeg", 0.7);
+    };
+    const raw = await window.storage.get("tj:core");
+    const core = JSON.parse(raw.value);
+    core.vision = Array.from({ length: 6 }, (_, i) => ({ id: "vs" + i, label: "Shot " + i, note: "", img: paint(i * 57) }));
+    await window.storage.set("tj:core", JSON.stringify(core));
+  });
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector(".tj-vshot", { timeout: 10000 });
+  await page.waitForTimeout(700);
+
+  const walk = [];
+  for (let i = 0; i < 14; i++) {
+    walk.push(await page.$eval(".tj-vshot", (e) => getComputedStyle(e).backgroundImage));
+    await page.click('[aria-label="Next day"]');
+    await page.waitForTimeout(360);
+  }
+  for (let i = 0; i < 14; i++) { await page.click('[aria-label="Previous day"]'); await page.waitForTimeout(140); }
+  await page.waitForTimeout(500);
+  const same = walk.filter((v, i) => i > 0 && v === walk[i - 1]).length;
+  ok(`the lead never repeats two mornings running (${same} repeats in 14)`, same === 0);
+  ok(`every photograph comes up inside a fortnight (${new Set(walk).size} of 6)`, new Set(walk).size === 6);
 }
 
 /* 20. One list called Non-negotiables, not two. The Discipline tab in Becoming
